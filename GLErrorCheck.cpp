@@ -12,3 +12,4 @@ bool GLCheckError(const char *functionName, const char *file, int line) {
     }
     return true;
 }
+
