@@ -5,9 +5,11 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
 #include <vector>
-
 #include "GeometricDefinitions.h"
 #include "glad/glad.h"
+#include "GLErrorCheck.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 
 class Object3D {
 private:
@@ -17,25 +19,23 @@ private:
 
     static float calculateBernsteinPolynomial(int n, int i, float u);
 
-    Vertex calculateBezierVertices(float u, float v, unsigned int (*controlPoints)[ORDER + 1]);
+    Vertex calculateBezierVertices(float u, float v, int index);
 
 public:
-    GLuint VBO;
-    GLuint EBO;
-    GLuint BezierEBO;
-    GLuint VAO;
-    GLuint texture;
+    unsigned int VBO;
+    unsigned int BezierEBO;
+    unsigned int VAO;
     int vertexCount;
-    int triangleCount;
-    int bezierCount;
+    int bezierSurfaceCount;
     glm::mat4 modelMatrix;
-    std::vector<Vertex> vlist;
-    std::vector<Triangle> tlist;
-    std::vector<BezierSurface> blist;
+    std::vector<Vertex> vertexList;
+    std::vector<BezierSurface> bezierList;
 
     Object3D();
 
     ~Object3D();
 
     void CreateObject();
+
+    void SetVertices();
 };

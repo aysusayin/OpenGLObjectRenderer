@@ -1,8 +1,5 @@
 // OpenGLProject.cpp : Defines the entry point for the console application.
 //
-
-#define GLEW_STATIC
-
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 #include "Shader.h"
@@ -62,7 +59,6 @@ glm::mat4 calculateViewTransform() {
     return view;
 }
 
-
 int main() {
     int screenWidth = 800;
     int screenHeight = 600;
@@ -100,28 +96,27 @@ int main() {
         int viewLoc = glGetUniformLocation(shader.Program, "view");
         int projLoc = glGetUniformLocation(shader.Program, "projection");
         // Pass the view and projection matrices to the shaders
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-        glm::vec3 lightPos = glm::vec3(4, 4, 4);
+        GLCall(glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view)));
+        GLCall(glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection)));
 
         for (auto pObj : listOfObjects) {
-            glBindVertexArray(pObj->VAO);
+            GLCall(glBindVertexArray(pObj->VAO));
             // !!!!! You will need to modify the model matrices of each separate object. "modelMatrix"
             // of Object3D is identity if not modified!!!!!
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(pObj->modelMatrix));
+            GLCall(glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(pObj->modelMatrix)));
             // Draw the current object.
-            glDrawElements(GL_TRIANGLES, (RESU - 1) * (RESV - 1) * 2 * 3 * pObj->bezierCount, GL_UNSIGNED_INT, nullptr);
-            glBindVertexArray(0);
+            GLCall(glDrawElements(GL_TRIANGLES, (RESU - 1) * (RESV - 1) * 2 * 3 * pObj->bezierSurfaceCount, GL_UNSIGNED_INT,
+                                  nullptr));
+            GLCall(glBindVertexArray(0));
         }
         // Swap the buffers
-
         glfwSwapBuffers(window);
 
     }
     for (auto pObj : listOfObjects) {
         glDeleteVertexArrays(1, &pObj->VAO);
         glDeleteBuffers(1, &pObj->VBO);
-        glDeleteBuffers(1, &pObj->EBO);
+        glDeleteBuffers(1, &pObj->BezierEBO);
         delete pObj;
     }
     shader.Delete();
