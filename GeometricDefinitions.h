@@ -2,6 +2,7 @@
 #define ORDER 3
 #define RESU 10
 #define RESV 10
+#define PATCH_NUM 28
 
 #include <cmath>
 
@@ -57,11 +58,6 @@ inline Vertex operator+(const Vertex &v1, const Vertex &v2) {
     return vertex;
 }
 
-struct Triangle {
-    unsigned int nverts; /* number of vertex indices in list */
-    unsigned int *verts; /* vertex index list */
-};
-
 struct BezierSurface {
-    unsigned int (*controlPoints)[ORDER + 1];
+    unsigned int controlPoints[ORDER+1][ORDER+1];
 };

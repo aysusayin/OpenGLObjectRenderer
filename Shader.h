@@ -5,8 +5,11 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
-
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include "glad/glad.h"
+#include "GLErrorCheck.h"
 
 class Shader {
 private:
@@ -33,7 +36,7 @@ private:
         return id;
     }
 
-    void ParseShaderFile(const std::string& shaderPath){
+    void ParseShaderFile(const std::string &shaderPath) {
         std::ifstream fileStream;
         short type = -1; // None, Vertex, Fragment
         // ensures ifstream objects can throw exceptions:
@@ -66,7 +69,7 @@ private:
             this->vertexCode = vShaderStream.str();
             this->fragmentCode = fShaderStream.str();
 
-        } catch (std::ifstream::failure& e) {
+        } catch (std::ifstream::failure &e) {
             std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ" << std::endl;
         }
     }
@@ -75,7 +78,7 @@ public:
     unsigned int Program;
 
     // Constructor generates the shader on the fly
-    Shader(const std::string& shaderPath) {
+    Shader(const std::string &shaderPath) {
         // 1. Retrieve the vertex/fragment source code from filePath
         ParseShaderFile(shaderPath);
 
@@ -113,6 +116,11 @@ public:
         glDeleteProgram(this->Program);
     }
 
+    void SetUniformMat4fv(const char *name, glm::mat4 &matrix) {
+        // Get the matrix locations in the shaders and pass the view and projection matrices to the shaders
+        auto loc = glGetUniformLocation(this->Program, name);
+        GLCall(glUniformMatrix4fv(loc, 1, GL_FALSE, &matrix[0][0]));
+    }
 };
 
 #endif

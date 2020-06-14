@@ -8,8 +8,7 @@
 #include "GeometricDefinitions.h"
 #include "glad/glad.h"
 #include "GLErrorCheck.h"
-#include "VertexBuffer.h"
-#include "IndexBuffer.h"
+#include "Shader.h"
 
 class Object3D {
 private:
@@ -23,13 +22,15 @@ private:
 
 public:
     unsigned int VBO;
-    unsigned int BezierEBO;
+    unsigned int EBO;
     unsigned int VAO;
     int vertexCount;
     int bezierSurfaceCount;
     glm::mat4 modelMatrix;
     std::vector<Vertex> vertexList;
     std::vector<BezierSurface> bezierList;
+    // 2 because a patch is 2 triangles and each has 3 vertices
+    unsigned int bezierElementArray[PATCH_NUM * (RESU - 1) * (RESV - 1) * 2 * 3];
 
     Object3D();
 
@@ -38,4 +39,8 @@ public:
     void CreateObject();
 
     void SetVertices();
+
+    void SetBezierPatches();
+
+    void DrawObject(Shader *shader, glm::mat4 *vp);
 };

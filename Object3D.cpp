@@ -1,59 +1,29 @@
 #include "Object3D.h"
 
-Object3D::Object3D() { this->modelMatrix = glm::mat4(1.0f); }
-
-Object3D::~Object3D() {}
-
-int Object3D::factorial(int n) {
-    return (n == 1 || n == 0) ? 1 : factorial(n - 1) * n;
+Object3D::Object3D() {
+    this->modelMatrix = glm::mat4(1.0f);
+    CreateObject();
 }
 
-float Object3D::calculateBinomialCoeff(int n, int i) {
-    return factorial(n) * 1.0f / (factorial(i) * factorial(n - i));
-}
-
-float Object3D::calculateBernsteinPolynomial(int n, int i, float u) {
-    return calculateBinomialCoeff(n, i) * (float) pow(u, i) * (float) pow(1 - u, n - i);
-}
-
-Vertex Object3D::calculateBezierVertices(float u, float v, int index) {
-    Vertex result;
-    for (int i = 0; i < ORDER + 1; i++) {
-        for (int j = 0; j < ORDER + 1; j++) {
-            result = result +
-                     calculateBernsteinPolynomial(ORDER + 1, i, u) * calculateBernsteinPolynomial(ORDER + 1, j, v) *
-                     vertexList[bezierList[index].controlPoints[i][j]];
-        }
-    }
-    result.r = 1.0 * index / bezierSurfaceCount;
-    result.g = 1.0 * index / bezierSurfaceCount;
-    result.b = 0.8;
-    return result;
+Object3D::~Object3D() {
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
 }
 
 void Object3D::CreateObject() {
-    bezierSurfaceCount = 1;
     SetVertices();
-
-    unsigned int bezierIndices[][ORDER + 1] = {{40, 47, 48, 13},
-                                               {72, 79, 80, 49},
-                                               {75, 81, 82, 53},
-                                               {78, 83, 84, 57}};
-    bezierList.resize(bezierSurfaceCount);
-    bezierList[0].controlPoints = bezierIndices;
-    Vertex bezierVertexList[RESU * RESV];
-
-    for (int i = 0; i < bezierSurfaceCount; i++) {
-        for (int ru = 0; ru <= RESU - 1; ru++) {
+    SetBezierPatches();
+    Vertex bezierVertexList[RESU * RESV * PATCH_NUM];
+    for (int p = 0; p < bezierSurfaceCount; p++) {
+        for (int ru = 0; ru < RESU; ru++) {
             float u = 1.0 * ru / (RESU - 1);
-            for (int rv = 0; rv <= RESV - 1; rv++) {
+            for (int rv = 0; rv < RESV; rv++) {
                 float v = 1.0 * rv / (RESV - 1);
-                bezierVertexList[i * RESU * RESV + ru * RESV + rv] = calculateBezierVertices(u, v, i);
+                bezierVertexList[p * RESU * RESV + ru * RESV + rv] = calculateBezierVertices(u, v, p);
             }
         }
     }
-    int bezierSize = bezierSurfaceCount * (RESU - 1) * (RESV - 1) * 2 * 3;
-    unsigned int bezierElementArray[bezierSize];
 
     // Elements
     int n = 0;
@@ -81,300 +51,433 @@ void Object3D::CreateObject() {
     // Bind the vertex and index buffers
     GLCall(glGenVertexArrays(1, &VAO));
     GLCall(glGenBuffers(1, &VBO));
-    GLCall(glGenBuffers(1, &BezierEBO));
+    GLCall(glGenBuffers(1, &EBO));
 
     // Bind our Vertex Array Object first, then bind and set our buffers and
     // pointers.
     GLCall(glBindVertexArray(VAO));
 
+    int attributeCount = sizeof(Vertex) / sizeof(float); // x y z r g b = 6
+
     // Convert our vertex list into a continuous array, copy the vertices into the
     // vertex buffer.
-    int attributeCount = 6; // x y z r g b
-
-    float *vertexData = new float[RESU * RESV * attributeCount];
-    for (int i = 0; i < RESU * RESV; i++)
+    float *vertexData = new float[PATCH_NUM * RESU * RESV * attributeCount];
+    for (int i = 0; i < PATCH_NUM * RESU * RESV; i++)
         bezierVertexList[i].getAsArray(&vertexData[i * attributeCount]);
     GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
-    GLCall(glBufferData(GL_ARRAY_BUFFER, attributeCount * RESU * RESV * sizeof(float), vertexData, GL_STATIC_DRAW));
+    GLCall(glBufferData(GL_ARRAY_BUFFER, PATCH_NUM * RESU * RESV * attributeCount * sizeof(float), vertexData,
+                        GL_STATIC_DRAW));
 
-    // Copy the index data found in the list of triangles into the element array
-    // buffer (index array) We are using a triangles, so we need triangleCount * 3
-    // indices.
-    GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, BezierEBO));
-    GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * bezierSize,
+
+    // Bind buffer element array.
+    GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO));
+    GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, PATCH_NUM * (RESU - 1) * (RESV - 1) * 2 * 3 * sizeof(unsigned int),
                         bezierElementArray,
                         GL_STATIC_DRAW));
 
     // Position attribute
-    GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid *) 0));
-    GLCall(glEnableVertexAttribArray(0));
-
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+                          attributeCount * sizeof(GLfloat), (GLvoid *) 0);
+    glEnableVertexAttribArray(0);
     // Color attribute
-    GLCall(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid *) (3 * sizeof(GLfloat))));
-    GLCall(glEnableVertexAttribArray(1));
-    GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
-
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+                          attributeCount * sizeof(GLfloat),
+                          (GLvoid *) (3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     // Unbind VAO
-    GLCall(glBindVertexArray(0));
-
+    glBindVertexArray(0);
     // Delete temporary buffers
     delete[] vertexData;
 }
 
+void Object3D::DrawObject(Shader *shader, glm::mat4* vp) {
+    GLCall(glBindVertexArray(VAO));
+    glm::mat4 mvp = *vp * modelMatrix ;
+    shader->SetUniformMat4fv("mvp", mvp);
+    GLCall(glDrawElements(GL_TRIANGLES, PATCH_NUM * (RESU - 1) * (RESV - 1) * 2 * 3, GL_UNSIGNED_INT,
+                          0));
+    GLCall(glBindVertexArray(0));
+}
+
+Vertex Object3D::calculateBezierVertices(float u, float v, int index) {
+    Vertex result;
+    result.set(0,0,0,0,0,0);
+    for (int i = 0; i < ORDER + 1; i++) {
+        for (int j = 0; j < ORDER + 1; j++) {
+            result = result +
+                    (calculateBernsteinPolynomial(ORDER, i, u) * calculateBernsteinPolynomial(ORDER, j, v) *
+                     vertexList[bezierList[index].controlPoints[i][j]]);
+        }
+    }
+    result.r = 0.99;
+    result.b = 1.0 * index / bezierSurfaceCount;
+    result.g = 1.0 * index / bezierSurfaceCount;
+    return result;
+}
+
+int Object3D::factorial(int n) {
+    return (n == 1 || n == 0) ? 1 : factorial(n - 1) * n;
+}
+
+float Object3D::calculateBinomialCoeff(int n, int i) {
+    return factorial(n) * 1.0f / (factorial(i) * factorial(n - i));
+}
+
+float Object3D::calculateBernsteinPolynomial(int n, int i, float u) {
+    return calculateBinomialCoeff(n, i) * (float) pow(u, i) * (float) pow(1 - u, n - i);
+}
+
+void Object3D::SetBezierPatches() {
+    bezierSurfaceCount = PATCH_NUM;
+    bezierList.resize(bezierSurfaceCount);
+    unsigned int teapot_patches[][ORDER + 1][ORDER + 1] = {
+            // rim
+            {{1,   2,   3,   4},   {5,   6,   7,   8},   {9,   10,  11,  12},  {13,  14,  15,  16}},
+            {{4,   17,  18,  19},  {8,   20,  21,  22},  {12,  23,  24,  25},  {16,  26,  27,  28}},
+            {{19,  29,  30,  31},  {22,  32,  33,  34},  {25,  35,  36,  37},  {28,  38,  39,  40}},
+            {{31,  41,  42,  1},   {34,  43,  44,  5},   {37,  45,  46,  9},   {40,  47,  48,  13}},
+            // body
+            {{13,  14,  15,  16},  {49,  50,  51,  52},  {53,  54,  55,  56},  {57,  58,  59,  60}},
+            {{16,  26,  27,  28},  {52,  61,  62,  63},  {56,  64,  65,  66},  {60,  67,  68,  69}},
+            {{28,  38,  39,  40},  {63,  70,  71,  72},  {66,  73,  74,  75},  {69,  76,  77,  78}},
+            {{40,  47,  48,  13},  {72,  79,  80,  49},  {75,  81,  82,  53},  {78,  83,  84,  57}},
+            {{57,  58,  59,  60},  {85,  86,  87,  88},  {89,  90,  91,  92},  {93,  94,  95,  96}},
+            {{60,  67,  68,  69},  {88,  97,  98,  99},  {92,  100, 101, 102}, {96,  103, 104, 105}},
+            {{69,  76,  77,  78},  {99,  106, 107, 108}, {102, 109, 110, 111}, {105, 112, 113, 114}},
+            {{78,  83,  84,  57},  {108, 115, 116, 85},  {111, 117, 118, 89},  {114, 119, 120, 93}},
+            // handle
+            {{121, 122, 123, 124}, {125, 126, 127, 128}, {129, 130, 131, 132}, {133, 134, 135, 136}},
+            {{124, 137, 138, 121}, {128, 139, 140, 125}, {132, 141, 142, 129}, {136, 143, 144, 133}},
+            {{133, 134, 135, 136}, {145, 146, 147, 148}, {149, 150, 151, 152}, {69,  153, 154, 155}},
+            {{136, 143, 144, 133}, {148, 156, 157, 145}, {152, 158, 159, 149}, {155, 160, 161, 69}},
+            // spout
+            {{162, 163, 164, 165}, {166, 167, 168, 169}, {170, 171, 172, 173}, {174, 175, 176, 177}},
+            {{165, 178, 179, 162}, {169, 180, 181, 166}, {173, 182, 183, 170}, {177, 184, 185, 174}},
+            {{174, 175, 176, 177}, {186, 187, 188, 189}, {190, 191, 192, 193}, {194, 195, 196, 197}},
+            {{177, 184, 185, 174}, {189, 198, 199, 186}, {193, 200, 201, 190}, {197, 202, 203, 194}},
+            // lid
+            {{204, 204, 204, 204}, {207, 208, 209, 210}, {211, 211, 211, 211}, {212, 213, 214, 215}},
+            {{204, 204, 204, 204}, {210, 217, 218, 219}, {211, 211, 211, 211}, {215, 220, 221, 222}},
+            {{204, 204, 204, 204}, {219, 224, 225, 226}, {211, 211, 211, 211}, {222, 227, 228, 229}},
+            {{204, 204, 204, 204}, {226, 230, 231, 207}, {211, 211, 211, 211}, {229, 232, 233, 212}},
+            {{212, 213, 214, 215}, {234, 235, 236, 237}, {238, 239, 240, 241}, {242, 243, 244, 245}},
+            {{215, 220, 221, 222}, {237, 246, 247, 248}, {241, 249, 250, 251}, {245, 252, 253, 254}},
+            {{222, 227, 228, 229}, {248, 255, 256, 257}, {251, 258, 259, 260}, {254, 261, 262, 263}},
+            {{229, 232, 233, 212}, {257, 264, 265, 234}, {260, 266, 267, 238}, {263, 268, 269, 242}}
+            // no bottom!
+    };
+    for (int p = 0; p < bezierSurfaceCount; p++) {
+        for (int i = 0; i < ORDER + 1; i++) {
+            for (int j = 0; j < ORDER + 1; j++) {
+                bezierList[p].controlPoints[i][j] = teapot_patches[p][i][j] - 1;
+            }
+        }
+    }
+}
+
 void Object3D::SetVertices() {
-    vertexCount = 253;
+    vertexCount = 269;
     vertexList.resize(vertexCount);
-    vertexList[0].set(-0.784, -1.4, 2.4, 1.0, 0.0, 0.0);
-    vertexList[1].set(-1.4, -0.784, 2.4, 1.0, 0.0, 0.0);
-    vertexList[2].set(-1.4, 0.0, 2.4, 1.0, 0.0, 0.0);
-    vertexList[3].set(-0.749, -1.3375, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[4].set(-1.3375, -0.749, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[5].set(-1.3375, 0.0, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[6].set(-0.805, -1.4375, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[7].set(-1.4375, -0.805, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[8].set(-1.4375, 0.0, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[9].set(-0.84, -1.5, 2.4, 1.0, 0.0, 0.0);
-    vertexList[10].set(-1.5, -0.84, 2.4, 1.0, 0.0, 0.0);
-    vertexList[11].set(-1.5, 0.0, 2.4, 1.0, 0.0, 0.0);
-    vertexList[12].set(-1.4, 0.784, 2.4, 1.0, 0.0, 0.0);
-    vertexList[13].set(-0.784, 1.4, 2.4, 1.0, 0.0, 0.0);
-    vertexList[14].set(0.0, 1.4, 2.4, 1.0, 0.0, 0.0);
-    vertexList[15].set(-1.3375, 0.749, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[16].set(-0.749, 1.3375, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[17].set(0.0, 1.3375, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[18].set(-1.4375, 0.805, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[19].set(-0.805, 1.4375, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[20].set(0.0, 1.4375, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[21].set(-1.5, 0.84, 2.4, 1.0, 0.0, 0.0);
-    vertexList[22].set(-0.84, 1.5, 2.4, 1.0, 0.0, 0.0);
-    vertexList[23].set(0.0, 1.5, 2.4, 1.0, 0.0, 0.0);
-    vertexList[24].set(0.784, 1.4, 2.4, 1.0, 0.0, 0.0);
-    vertexList[25].set(1.4, 0.784, 2.4, 1.0, 0.0, 0.0);
-    vertexList[26].set(0.749, 1.3375, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[27].set(1.3375, 0.749, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[28].set(0.805, 1.4375, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[29].set(1.4375, 0.805, 2.53125, 1.0, 0.0, 0.0);
-    vertexList[30].set(0.84, 1.5, 2.4, 1.0, 0.0, 0.0);
-    vertexList[31].set(1.5, 0.84, 2.4, 1.0, 0.0, 0.0);
-    vertexList[32].set(1.75, 0.0, 1.875, 1.0, 0.0, 0.0);
-    vertexList[33].set(1.75, -0.98, 1.875, 1.0, 0.0, 0.0);
-    vertexList[34].set(0.98, -1.75, 1.875, 1.0, 0.0, 0.0);
-    vertexList[35].set(0.0, -1.75, 1.875, 1.0, 0.0, 0.0);
-    vertexList[36].set(2.0, 0.0, 1.35, 1.0, 0.0, 0.0);
-    vertexList[37].set(2.0, -1.12, 1.35, 1.0, 0.0, 0.0);
-    vertexList[38].set(1.12, -2.0, 1.35, 1.0, 0.0, 0.0);
-    vertexList[39].set(0.0, -2.0, 1.35, 1.0, 0.0, 0.0);
-    vertexList[40].set(2.0, 0.0, 0.9, 1.0, 0.0, 0.0);
-    vertexList[41].set(2.0, -1.12, 0.9, 1.0, 0.0, 0.0);
-    vertexList[42].set(1.12, -2.0, 0.9, 1.0, 0.0, 0.0);
-    vertexList[43].set(0.0, -2.0, 0.9, 1.0, 0.0, 0.0);
-    vertexList[44].set(-0.98, -1.75, 1.875, 1.0, 0.0, 0.0);
-    vertexList[45].set(-1.75, -0.98, 1.875, 1.0, 0.0, 0.0);
-    vertexList[46].set(-1.75, 0.0, 1.875, 1.0, 0.0, 0.0);
-    vertexList[47].set(-1.12, -2.0, 1.35, 1.0, 0.0, 0.0);
-    vertexList[48].set(-2.0, -1.12, 1.35, 1.0, 0.0, 0.0);
-    vertexList[49].set(-2.0, 0.0, 1.35, 1.0, 0.0, 0.0);
-    vertexList[50].set(-1.12, -2.0, 0.9, 1.0, 0.0, 0.0);
-    vertexList[51].set(-2.0, -1.12, 0.9, 1.0, 0.0, 0.0);
-    vertexList[52].set(-2.0, 0.0, 0.9, 1.0, 0.0, 0.0);
-    vertexList[53].set(-1.75, 0.98, 1.875, 1.0, 0.0, 0.0);
-    vertexList[54].set(-0.98, 1.75, 1.875, 1.0, 0.0, 0.0);
-    vertexList[55].set(0.0, 1.75, 1.875, 1.0, 0.0, 0.0);
-    vertexList[56].set(-2.0, 1.12, 1.35, 1.0, 0.0, 0.0);
-    vertexList[57].set(-1.12, 2.0, 1.35, 1.0, 0.0, 0.0);
-    vertexList[58].set(0.0, 2.0, 1.35, 1.0, 0.0, 0.0);
-    vertexList[59].set(-2.0, 1.12, 0.9, 1.0, 0.0, 0.0);
-    vertexList[60].set(-1.12, 2.0, 0.9, 1.0, 0.0, 0.0);
-    vertexList[61].set(0.0, 2.0, 0.9, 1.0, 0.0, 0.0);
-    vertexList[62].set(0.98, 1.75, 1.875, 1.0, 0.0, 0.0);
-    vertexList[63].set(1.75, 0.98, 1.875, 1.0, 0.0, 0.0);
-    vertexList[64].set(1.12, 2.0, 1.35, 1.0, 0.0, 0.0);
-    vertexList[65].set(2.0, 1.12, 1.35, 1.0, 0.0, 0.0);
-    vertexList[66].set(1.12, 2.0, 0.9, 1.0, 0.0, 0.0);
-    vertexList[67].set(2.0, 1.12, 0.9, 1.0, 0.0, 0.0);
-    vertexList[68].set(2.0, 0.0, 0.45, 1.0, 0.0, 0.0);
-    vertexList[69].set(2.0, -1.12, 0.45, 1.0, 0.0, 0.0);
-    vertexList[70].set(1.12, -2.0, 0.45, 1.0, 0.0, 0.0);
-    vertexList[71].set(0.0, -2.0, 0.45, 1.0, 0.0, 0.0);
-    vertexList[72].set(1.5, 0.0, 0.225, 1.0, 0.0, 0.0);
-    vertexList[73].set(1.5, -0.84, 0.225, 1.0, 0.0, 0.0);
-    vertexList[74].set(0.84, -1.5, 0.225, 1.0, 0.0, 0.0);
-    vertexList[75].set(0.0, -1.5, 0.225, 1.0, 0.0, 0.0);
-    vertexList[76].set(1.5, 0.0, 0.15, 1.0, 0.0, 0.0);
-    vertexList[77].set(1.5, -0.84, 0.15, 1.0, 0.0, 0.0);
-    vertexList[78].set(0.84, -1.5, 0.15, 1.0, 0.0, 0.0);
-    vertexList[79].set(0.0, -1.5, 0.15, 1.0, 0.0, 0.0);
-    vertexList[80].set(-1.12, -2.0, 0.45, 1.0, 0.0, 0.0);
-    vertexList[81].set(-2.0, -1.12, 0.45, 1.0, 0.0, 0.0);
-    vertexList[82].set(-2.0, 0.0, 0.45, 1.0, 0.0, 0.0);
-    vertexList[83].set(-0.84, -1.5, 0.225, 1.0, 0.0, 0.0);
-    vertexList[84].set(-1.5, -0.84, 0.225, 1.0, 0.0, 0.0);
-    vertexList[85].set(-1.5, 0.0, 0.225, 1.0, 0.0, 0.0);
-    vertexList[86].set(-0.84, -1.5, 0.15, 1.0, 0.0, 0.0);
-    vertexList[87].set(-1.5, -0.84, 0.15, 1.0, 0.0, 0.0);
-    vertexList[88].set(-1.5, 0.0, 0.15, 1.0, 0.0, 0.0);
-    vertexList[89].set(-2.0, 1.12, 0.45, 1.0, 0.0, 0.0);
-    vertexList[90].set(-1.12, 2.0, 0.45, 1.0, 0.0, 0.0);
-    vertexList[91].set(0.0, 2.0, 0.45, 1.0, 0.0, 0.0);
-    vertexList[92].set(-1.5, 0.84, 0.225, 1.0, 0.0, 0.0);
-    vertexList[93].set(-0.84, 1.5, 0.225, 1.0, 0.0, 0.0);
-    vertexList[94].set(0.0, 1.5, 0.225, 1.0, 0.0, 0.0);
-    vertexList[95].set(-1.5, 0.84, 0.15, 1.0, 0.0, 0.0);
-    vertexList[96].set(-0.84, 1.5, 0.15, 1.0, 0.0, 0.0);
-    vertexList[97].set(0.0, 1.5, 0.15, 1.0, 0.0, 0.0);
-    vertexList[98].set(1.12, 2.0, 0.45, 1.0, 0.0, 0.0);
-    vertexList[99].set(2.0, 1.12, 0.45, 1.0, 0.0, 0.0);
-    vertexList[100].set(0.84, 1.5, 0.225, 1.0, 0.0, 0.0);
-    vertexList[101].set(1.5, 0.84, 0.225, 1.0, 0.0, 0.0);
-    vertexList[102].set(0.84, 1.5, 0.15, 1.0, 0.0, 0.0);
-    vertexList[103].set(1.5, 0.84, 0.15, 1.0, 0.0, 0.0);
-    vertexList[104].set(-1.6, 0.0, 2.025, 1.0, 0.0, 0.0);
-    vertexList[105].set(-1.6, -0.3, 2.025, 1.0, 0.0, 0.0);
-    vertexList[106].set(-1.5, -0.3, 2.25, 1.0, 0.0, 0.0);
-    vertexList[107].set(-1.5, 0.0, 2.25, 1.0, 0.0, 0.0);
-    vertexList[108].set(-2.3, 0.0, 2.025, 1.0, 0.0, 0.0);
-    vertexList[109].set(-2.3, -0.3, 2.025, 1.0, 0.0, 0.0);
-    vertexList[110].set(-2.5, -0.3, 2.25, 1.0, 0.0, 0.0);
-    vertexList[111].set(-2.5, 0.0, 2.25, 1.0, 0.0, 0.0);
-    vertexList[112].set(-2.7, 0.0, 2.025, 1.0, 0.0, 0.0);
-    vertexList[113].set(-2.7, -0.3, 2.025, 1.0, 0.0, 0.0);
-    vertexList[114].set(-3.0, -0.3, 2.25, 1.0, 0.0, 0.0);
-    vertexList[115].set(-3.0, 0.0, 2.25, 1.0, 0.0, 0.0);
-    vertexList[116].set(-2.7, 0.0, 1.8, 1.0, 0.0, 0.0);
-    vertexList[117].set(-2.7, -0.3, 1.8, 1.0, 0.0, 0.0);
-    vertexList[118].set(-3.0, -0.3, 1.8, 1.0, 0.0, 0.0);
-    vertexList[119].set(-3.0, 0.0, 1.8, 1.0, 0.0, 0.0);
-    vertexList[120].set(-1.5, 0.3, 2.25, 1.0, 0.0, 0.0);
-    vertexList[121].set(-1.6, 0.3, 2.025, 1.0, 0.0, 0.0);
-    vertexList[122].set(-2.5, 0.3, 2.25, 1.0, 0.0, 0.0);
-    vertexList[123].set(-2.3, 0.3, 2.025, 1.0, 0.0, 0.0);
-    vertexList[124].set(-3.0, 0.3, 2.25, 1.0, 0.0, 0.0);
-    vertexList[125].set(-2.7, 0.3, 2.025, 1.0, 0.0, 0.0);
-    vertexList[126].set(-3.0, 0.3, 1.8, 1.0, 0.0, 0.0);
-    vertexList[127].set(-2.7, 0.3, 1.8, 1.0, 0.0, 0.0);
-    vertexList[128].set(-2.7, 0.0, 1.575, 1.0, 0.0, 0.0);
-    vertexList[129].set(-2.7, -0.3, 1.575, 1.0, 0.0, 0.0);
-    vertexList[130].set(-3.0, -0.3, 1.35, 1.0, 0.0, 0.0);
-    vertexList[131].set(-3.0, 0.0, 1.35, 1.0, 0.0, 0.0);
-    vertexList[132].set(-2.5, 0.0, 1.125, 1.0, 0.0, 0.0);
-    vertexList[133].set(-2.5, -0.3, 1.125, 1.0, 0.0, 0.0);
-    vertexList[134].set(-2.65, -0.3, 0.9375, 1.0, 0.0, 0.0);
-    vertexList[135].set(-2.65, 0.0, 0.9375, 1.0, 0.0, 0.0);
-    vertexList[136].set(-2.0, -0.3, 0.9, 1.0, 0.0, 0.0);
-    vertexList[137].set(-1.9, -0.3, 0.6, 1.0, 0.0, 0.0);
-    vertexList[138].set(-1.9, 0.0, 0.6, 1.0, 0.0, 0.0);
-    vertexList[139].set(-3.0, 0.3, 1.35, 1.0, 0.0, 0.0);
-    vertexList[140].set(-2.7, 0.3, 1.575, 1.0, 0.0, 0.0);
-    vertexList[141].set(-2.65, 0.3, 0.9375, 1.0, 0.0, 0.0);
-    vertexList[142].set(-2.5, 0.3, 1.1255, 1.0, 0.0, 0.0);
-    vertexList[143].set(-1.9, 0.3, 0.6, 1.0, 0.0, 0.0);
-    vertexList[144].set(-2.0, 0.3, 0.9, 1.0, 0.0, 0.0);
-    vertexList[145].set(1.7, 0.0, 1.425, 1.0, 0.0, 0.0);
-    vertexList[146].set(1.7, -0.66, 1.425, 1.0, 0.0, 0.0);
-    vertexList[147].set(1.7, -0.66, 0.6, 1.0, 0.0, 0.0);
-    vertexList[148].set(1.7, 0.0, 0.6, 1.0, 0.0, 0.0);
-    vertexList[149].set(2.6, 0.0, 1.425, 1.0, 0.0, 0.0);
-    vertexList[150].set(2.6, -0.66, 1.425, 1.0, 0.0, 0.0);
-    vertexList[151].set(3.1, -0.66, 0.825, 1.0, 0.0, 0.0);
-    vertexList[152].set(3.1, 0.0, 0.825, 1.0, 0.0, 0.0);
-    vertexList[153].set(2.3, 0.0, 2.1, 1.0, 0.0, 0.0);
-    vertexList[154].set(2.3, -0.25, 2.1, 1.0, 0.0, 0.0);
-    vertexList[155].set(2.4, -0.25, 2.025, 1.0, 0.0, 0.0);
-    vertexList[156].set(2.4, 0.0, 2.025, 1.0, 0.0, 0.0);
-    vertexList[157].set(2.7, 0.0, 2.4, 1.0, 0.0, 0.0);
-    vertexList[158].set(2.7, -0.25, 2.4, 1.0, 0.0, 0.0);
-    vertexList[159].set(3.3, -0.25, 2.4, 1.0, 0.0, 0.0);
-    vertexList[160].set(3.3, 0.0, 2.4, 1.0, 0.0, 0.0);
-    vertexList[161].set(1.7, 0.66, 0.6, 1.0, 0.0, 0.0);
-    vertexList[162].set(1.7, 0.66, 1.425, 1.0, 0.0, 0.0);
-    vertexList[163].set(3.1, 0.66, 0.825, 1.0, 0.0, 0.0);
-    vertexList[164].set(2.6, 0.66, 1.425, 1.0, 0.0, 0.0);
-    vertexList[165].set(2.4, 0.25, 2.025, 1.0, 0.0, 0.0);
-    vertexList[166].set(2.3, 0.25, 2.1, 1.0, 0.0, 0.0);
-    vertexList[167].set(3.3, 0.25, 2.4, 1.0, 0.0, 0.0);
-    vertexList[168].set(2.7, 0.25, 2.4, 1.0, 0.0, 0.0);
-    vertexList[169].set(2.8, 0.0, 2.475, 1.0, 0.0, 0.0);
-    vertexList[170].set(2.8, -0.25, 2.475, 1.0, 0.0, 0.0);
-    vertexList[171].set(3.525, -0.25, 2.49375, 1.0, 0.0, 0.0);
-    vertexList[172].set(3.525, 0.0, 2.49375, 1.0, 0.0, 0.0);
-    vertexList[173].set(2.9, 0.0, 2.475, 1.0, 0.0, 0.0);
-    vertexList[174].set(2.9, -0.15, 2.475, 1.0, 0.0, 0.0);
-    vertexList[175].set(3.45, -0.15, 2.5125, 1.0, 0.0, 0.0);
-    vertexList[176].set(3.45, 0.0, 2.5125, 1.0, 0.0, 0.0);
-    vertexList[177].set(2.8, 0.0, 2.4, 1.0, 0.0, 0.0);
-    vertexList[178].set(2.8, -0.15, 2.4, 1.0, 0.0, 0.0);
-    vertexList[179].set(3.2, -0.15, 2.4, 1.0, 0.0, 0.0);
-    vertexList[180].set(3.2, 0.0, 2.4, 1.0, 0.0, 0.0);
-    vertexList[181].set(3.525, 0.25, 2.49375, 1.0, 0.0, 0.0);
-    vertexList[182].set(2.8, 0.25, 2.475, 1.0, 0.0, 0.0);
-    vertexList[183].set(3.45, 0.15, 2.5125, 1.0, 0.0, 0.0);
-    vertexList[184].set(2.9, 0.15, 2.475, 1.0, 0.0, 0.0);
-    vertexList[185].set(3.2, 0.15, 2.4, 1.0, 0.0, 0.0);
-    vertexList[186].set(2.8, 0.15, 2.4, 1.0, 0.0, 0.0);
-    vertexList[187].set(0.0, 0.0, 3.15, 1.0, 0.0, 0.0);
-    vertexList[188].set(0.0, -0.002, 3.15, 1.0, 0.0, 0.0);
-    vertexList[189].set(0.002, 0.0, 3.15, 1.0, 0.0, 0.0);
-    vertexList[190].set(0.8, 0.0, 3.15, 1.0, 0.0, 0.0);
-    vertexList[191].set(0.8, -0.45, 3.15, 1.0, 0.0, 0.0);
-    vertexList[192].set(0.45, -0.8, 3.15, 1.0, 0.0, 0.0);
-    vertexList[193].set(0.0, -0.8, 3.15, 1.0, 0.0, 0.0);
-    vertexList[194].set(0.0, 0.0, 2.85, 1.0, 0.0, 0.0);
-    vertexList[195].set(0.2, 0.0, 2.7, 1.0, 0.0, 0.0);
-    vertexList[196].set(0.2, -0.112, 2.7, 1.0, 0.0, 0.0);
-    vertexList[197].set(0.112, -0.2, 2.7, 1.0, 0.0, 0.0);
-    vertexList[198].set(0.0, -0.2, 2.7, 1.0, 0.0, 0.0);
-    vertexList[199].set(-0.002, 0.0, 3.15, 1.0, 0.0, 0.0);
-    vertexList[200].set(-0.45, -0.8, 3.15, 1.0, 0.0, 0.0);
-    vertexList[201].set(-0.8, -0.45, 3.15, 1.0, 0.0, 0.0);
-    vertexList[202].set(-0.8, 0.0, 3.15, 1.0, 0.0, 0.0);
-    vertexList[203].set(-0.112, -0.2, 2.7, 1.0, 0.0, 0.0);
-    vertexList[204].set(-0.2, -0.112, 2.7, 1.0, 0.0, 0.0);
-    vertexList[205].set(-0.2, 0.0, 2.7, 1.0, 0.0, 0.0);
-    vertexList[206].set(0.0, 0.002, 3.15, 1.0, 0.0, 0.0);
-    vertexList[207].set(-0.8, 0.45, 3.15, 1.0, 0.0, 0.0);
-    vertexList[208].set(-0.45, 0.8, 3.15, 1.0, 0.0, 0.0);
-    vertexList[209].set(0.0, 0.8, 3.15, 1.0, 0.0, 0.0);
-    vertexList[210].set(-0.2, 0.112, 2.7, 1.0, 0.0, 0.0);
-    vertexList[211].set(-0.112, 0.2, 2.7, 1.0, 0.0, 0.0);
-    vertexList[212].set(0.0, 0.2, 2.7, 1.0, 0.0, 0.0);
-    vertexList[213].set(0.45, 0.8, 3.15, 1.0, 0.0, 0.0);
-    vertexList[214].set(0.8, 0.45, 3.15, 1.0, 0.0, 0.0);
-    vertexList[215].set(0.112, 0.2, 2.7, 1.0, 0.0, 0.0);
-    vertexList[216].set(0.2, 0.112, 2.7, 1.0, 0.0, 0.0);
-    vertexList[217].set(0.4, 0.0, 2.55, 1.0, 0.0, 0.0);
-    vertexList[218].set(0.4, -0.224, 2.55, 1.0, 0.0, 0.0);
-    vertexList[219].set(0.224, -0.4, 2.55, 1.0, 0.0, 0.0);
-    vertexList[220].set(0.0, -0.4, 2.55, 1.0, 0.0, 0.0);
-    vertexList[221].set(1.3, 0.0, 2.55, 1.0, 0.0, 0.0);
-    vertexList[222].set(1.3, -0.728, 2.55, 1.0, 0.0, 0.0);
-    vertexList[223].set(0.728, -1.3, 2.55, 1.0, 0.0, 0.0);
-    vertexList[224].set(0.0, -1.3, 2.55, 1.0, 0.0, 0.0);
-    vertexList[225].set(1.3, 0.0, 2.4, 1.0, 0.0, 0.0);
-    vertexList[226].set(1.3, -0.728, 2.4, 1.0, 0.0, 0.0);
-    vertexList[227].set(0.728, -1.3, 2.4, 1.0, 0.0, 0.0);
-    vertexList[228].set(0.0, -1.3, 2.4, 1.0, 0.0, 0.0);
-    vertexList[229].set(-0.224, -0.4, 2.55, 1.0, 0.0, 0.0);
-    vertexList[230].set(-0.4, -0.224, 2.55, 1.0, 0.0, 0.0);
-    vertexList[231].set(-0.4, 0.0, 2.55, 1.0, 0.0, 0.0);
-    vertexList[232].set(-0.728, -1.3, 2.55, 1.0, 0.0, 0.0);
-    vertexList[233].set(-1.3, -0.728, 2.55, 1.0, 0.0, 0.0);
-    vertexList[234].set(-1.3, 0.0, 2.55, 1.0, 0.0, 0.0);
-    vertexList[235].set(-0.728, -1.3, 2.4, 1.0, 0.0, 0.0);
-    vertexList[236].set(-1.3, -0.728, 2.4, 1.0, 0.0, 0.0);
-    vertexList[237].set(-1.3, 0.0, 2.4, 1.0, 0.0, 0.0);
-    vertexList[238].set(-0.4, 0.224, 2.55, 1.0, 0.0, 0.0);
-    vertexList[239].set(-0.224, 0.4, 2.55, 1.0, 0.0, 0.0);
-    vertexList[240].set(0.0, 0.4, 2.55, 1.0, 0.0, 0.0);
-    vertexList[241].set(-1.3, 0.728, 2.55, 1.0, 0.0, 0.0);
-    vertexList[242].set(-0.728, 1.3, 2.55, 1.0, 0.0, 0.0);
-    vertexList[243].set(0.0, 1.3, 2.55, 1.0, 0.0, 0.0);
-    vertexList[244].set(-1.3, 0.728, 2.4, 1.0, 0.0, 0.0);
-    vertexList[245].set(-0.728, 1.3, 2.4, 1.0, 0.0, 0.0);
-    vertexList[246].set(0.0, 1.3, 2.4, 1.0, 0.0, 0.0);
-    vertexList[247].set(0.224, 0.4, 2.55, 1.0, 0.0, 0.0);
-    vertexList[248].set(0.4, 0.224, 2.55, 1.0, 0.0, 0.0);
-    vertexList[249].set(0.728, 1.3, 2.55, 1.0, 0.0, 0.0);
-    vertexList[250].set(1.3, 0.728, 2.55, 1.0, 0.0, 0.0);
-    vertexList[251].set(0.728, 1.3, 2.4, 1.0, 0.0, 0.0);
-    vertexList[252].set(1.3, 0.728, 2.4, 1.0, 0.0, 0.0);
+    float teapot_cp_vertices[][3] = {
+            // 1
+            {1.4,     0.0,     2.4},
+            {1.4,     -0.784,  2.4},
+            {0.784,   -1.4,    2.4},
+            {0.0,     -1.4,    2.4},
+            {1.3375,  0.0,     2.53125},
+            {1.3375,  -0.749,  2.53125},
+            {0.749,   -1.3375, 2.53125},
+            {0.0,     -1.3375, 2.53125},
+            {1.4375,  0.0,     2.53125},
+            {1.4375,  -0.805,  2.53125},
+            // 11
+            {0.805,   -1.4375, 2.53125},
+            {0.0,     -1.4375, 2.53125},
+            {1.5,     0.0,     2.4},
+            {1.5,     -0.84,   2.4},
+            {0.84,    -1.5,    2.4},
+            {0.0,     -1.5,    2.4},
+            {-0.784,  -1.4,    2.4},
+            {-1.4,    -0.784,  2.4},
+            {-1.4,    0.0,     2.4},
+            {-0.749,  -1.3375, 2.53125},
+            // 21
+            {-1.3375, -0.749,  2.53125},
+            {-1.3375, 0.0,     2.53125},
+            {-0.805,  -1.4375, 2.53125},
+            {-1.4375, -0.805,  2.53125},
+            {-1.4375, 0.0,     2.53125},
+            {-0.84,   -1.5,    2.4},
+            {-1.5,    -0.84,   2.4},
+            {-1.5,    0.0,     2.4},
+            {-1.4,    0.784,   2.4},
+            {-0.784,  1.4,     2.4},
+            // 31
+            {0.0,     1.4,     2.4},
+            {-1.3375, 0.749,   2.53125},
+            {-0.749,  1.3375,  2.53125},
+            {0.0,     1.3375,  2.53125},
+            {-1.4375, 0.805,   2.53125},
+            {-0.805,  1.4375,  2.53125},
+            {0.0,     1.4375,  2.53125},
+            {-1.5,    0.84,    2.4},
+            {-0.84,   1.5,     2.4},
+            {0.0,     1.5,     2.4},
+            // 41
+            {0.784,   1.4,     2.4},
+            {1.4,     0.784,   2.4},
+            {0.749,   1.3375,  2.53125},
+            {1.3375,  0.749,   2.53125},
+            {0.805,   1.4375,  2.53125},
+            {1.4375,  0.805,   2.53125},
+            {0.84,    1.5,     2.4},
+            {1.5,     0.84,    2.4},
+            {1.75,    0.0,     1.875},
+            {1.75,    -0.98,   1.875},
+            // 51
+            {0.98,    -1.75,   1.875},
+            {0.0,     -1.75,   1.875},
+            {2.0,     0.0,     1.35},
+            {2.0,     -1.12,   1.35},
+            {1.12,    -2.0,    1.35},
+            {0.0,     -2.0,    1.35},
+            {2.0,     0.0,     0.9},
+            {2.0,     -1.12,   0.9},
+            {1.12,    -2.0,    0.9},
+            {0.0,     -2.0,    0.9},
+            // 61
+            {-0.98,   -1.75,   1.875},
+            {-1.75,   -0.98,   1.875},
+            {-1.75,   0.0,     1.875},
+            {-1.12,   -2.0,    1.35},
+            {-2.0,    -1.12,   1.35},
+            {-2.0,    0.0,     1.35},
+            {-1.12,   -2.0,    0.9},
+            {-2.0,    -1.12,   0.9},
+            {-2.0,    0.0,     0.9},
+            {-1.75,   0.98,    1.875},
+            // 71
+            {-0.98,   1.75,    1.875},
+            {0.0,     1.75,    1.875},
+            {-2.0,    1.12,    1.35},
+            {-1.12,   2.0,     1.35},
+            {0.0,     2.0,     1.35},
+            {-2.0,    1.12,    0.9},
+            {-1.12,   2.0,     0.9},
+            {0.0,     2.0,     0.9},
+            {0.98,    1.75,    1.875},
+            {1.75,    0.98,    1.875},
+            // 81
+            {1.12,    2.0,     1.35},
+            {2.0,     1.12,    1.35},
+            {1.12,    2.0,     0.9},
+            {2.0,     1.12,    0.9},
+            {2.0,     0.0,     0.45},
+            {2.0,     -1.12,   0.45},
+            {1.12,    -2.0,    0.45},
+            {0.0,     -2.0,    0.45},
+            {1.5,     0.0,     0.225},
+            {1.5,     -0.84,   0.225},
+            // 91
+            {0.84,    -1.5,    0.225},
+            {0.0,     -1.5,    0.225},
+            {1.5,     0.0,     0.15},
+            {1.5,     -0.84,   0.15},
+            {0.84,    -1.5,    0.15},
+            {0.0,     -1.5,    0.15},
+            {-1.12,   -2.0,    0.45},
+            {-2.0,    -1.12,   0.45},
+            {-2.0,    0.0,     0.45},
+            {-0.84,   -1.5,    0.225},
+            // 101
+            {-1.5,    -0.84,   0.225},
+            {-1.5,    0.0,     0.225},
+            {-0.84,   -1.5,    0.15},
+            {-1.5,    -0.84,   0.15},
+            {-1.5,    0.0,     0.15},
+            {-2.0,    1.12,    0.45},
+            {-1.12,   2.0,     0.45},
+            {0.0,     2.0,     0.45},
+            {-1.5,    0.84,    0.225},
+            {-0.84,   1.5,     0.225},
+            // 111
+            {0.0,     1.5,     0.225},
+            {-1.5,    0.84,    0.15},
+            {-0.84,   1.5,     0.15},
+            {0.0,     1.5,     0.15},
+            {1.12,    2.0,     0.45},
+            {2.0,     1.12,    0.45},
+            {0.84,    1.5,     0.225},
+            {1.5,     0.84,    0.225},
+            {0.84,    1.5,     0.15},
+            {1.5,     0.84,    0.15},
+            // 121
+            {-1.6,    0.0,     2.025},
+            {-1.6,    -0.3,    2.025},
+            {-1.5,    -0.3,    2.25},
+            {-1.5,    0.0,     2.25},
+            {-2.3,    0.0,     2.025},
+            {-2.3,    -0.3,    2.025},
+            {-2.5,    -0.3,    2.25},
+            {-2.5,    0.0,     2.25},
+            {-2.7,    0.0,     2.025},
+            {-2.7,    -0.3,    2.025},
+            // 131
+            {-3.0,    -0.3,    2.25},
+            {-3.0,    0.0,     2.25},
+            {-2.7,    0.0,     1.8},
+            {-2.7,    -0.3,    1.8},
+            {-3.0,    -0.3,    1.8},
+            {-3.0,    0.0,     1.8},
+            {-1.5,    0.3,     2.25},
+            {-1.6,    0.3,     2.025},
+            {-2.5,    0.3,     2.25},
+            {-2.3,    0.3,     2.025},
+            // 141
+            {-3.0,    0.3,     2.25},
+            {-2.7,    0.3,     2.025},
+            {-3.0,    0.3,     1.8},
+            {-2.7,    0.3,     1.8},
+            {-2.7,    0.0,     1.575},
+            {-2.7,    -0.3,    1.575},
+            {-3.0,    -0.3,    1.35},
+            {-3.0,    0.0,     1.35},
+            {-2.5,    0.0,     1.125},
+            {-2.5,    -0.3,    1.125},
+            // 151
+            {-2.65,   -0.3,    0.9375},
+            {-2.65,   0.0,     0.9375},
+            {-2.0,    -0.3,    0.9},
+            {-1.9,    -0.3,    0.6},
+            {-1.9,    0.0,     0.6},
+            {-3.0,    0.3,     1.35},
+            {-2.7,    0.3,     1.575},
+            {-2.65,   0.3,     0.9375},
+            {-2.5,    0.3,     1.1255},
+            {-1.9,    0.3,     0.6},
+            // 161
+            {-2.0,    0.3,     0.9},
+            {1.7,     0.0,     1.425},
+            {1.7,     -0.66,   1.425},
+            {1.7,     -0.66,   0.6},
+            {1.7,     0.0,     0.6},
+            {2.6,     0.0,     1.425},
+            {2.6,     -0.66,   1.425},
+            {3.1,     -0.66,   0.825},
+            {3.1,     0.0,     0.825},
+            {2.3,     0.0,     2.1},
+            // 171
+            {2.3,     -0.25,   2.1},
+            {2.4,     -0.25,   2.025},
+            {2.4,     0.0,     2.025},
+            {2.7,     0.0,     2.4},
+            {2.7,     -0.25,   2.4},
+            {3.3,     -0.25,   2.4},
+            {3.3,     0.0,     2.4},
+            {1.7,     0.66,    0.6},
+            {1.7,     0.66,    1.425},
+            {3.1,     0.66,    0.825},
+            // 181
+            {2.6,     0.66,    1.425},
+            {2.4,     0.25,    2.025},
+            {2.3,     0.25,    2.1},
+            {3.3,     0.25,    2.4},
+            {2.7,     0.25,    2.4},
+            {2.8,     0.0,     2.475},
+            {2.8,     -0.25,   2.475},
+            {3.525,   -0.25,   2.49375},
+            {3.525,   0.0,     2.49375},
+            {2.9,     0.0,     2.475},
+            // 191
+            {2.9,     -0.15,   2.475},
+            {3.45,    -0.15,   2.5125},
+            {3.45,    0.0,     2.5125},
+            {2.8,     0.0,     2.4},
+            {2.8,     -0.15,   2.4},
+            {3.2,     -0.15,   2.4},
+            {3.2,     0.0,     2.4},
+            {3.525,   0.25,    2.49375},
+            {2.8,     0.25,    2.475},
+            {3.45,    0.15,    2.5125},
+            // 201
+            {2.9,     0.15,    2.475},
+            {3.2,     0.15,    2.4},
+            {2.8,     0.15,    2.4},
+            {0.0,     0.0,     3.15},
+            {0.0,     -0.002,  3.15},
+            {0.002,   0.0,     3.15},
+            {0.8,     0.0,     3.15},
+            {0.8,     -0.45,   3.15},
+            {0.45,    -0.8,    3.15},
+            {0.0,     -0.8,    3.15},
+            // 211
+            {0.0,     0.0,     2.85},
+            {0.2,     0.0,     2.7},
+            {0.2,     -0.112,  2.7},
+            {0.112,   -0.2,    2.7},
+            {0.0,     -0.2,    2.7},
+            {-0.002,  0.0,     3.15},
+            {-0.45,   -0.8,    3.15},
+            {-0.8,    -0.45,   3.15},
+            {-0.8,    0.0,     3.15},
+            {-0.112,  -0.2,    2.7},
+            // 221
+            {-0.2,    -0.112,  2.7},
+            {-0.2,    0.0,     2.7},
+            {0.0,     0.002,   3.15},
+            {-0.8,    0.45,    3.15},
+            {-0.45,   0.8,     3.15},
+            {0.0,     0.8,     3.15},
+            {-0.2,    0.112,   2.7},
+            {-0.112,  0.2,     2.7},
+            {0.0,     0.2,     2.7},
+            {0.45,    0.8,     3.15},
+            // 231
+            {0.8,     0.45,    3.15},
+            {0.112,   0.2,     2.7},
+            {0.2,     0.112,   2.7},
+            {0.4,     0.0,     2.55},
+            {0.4,     -0.224,  2.55},
+            {0.224,   -0.4,    2.55},
+            {0.0,     -0.4,    2.55},
+            {1.3,     0.0,     2.55},
+            {1.3,     -0.728,  2.55},
+            {0.728,   -1.3,    2.55},
+            // 241
+            {0.0,     -1.3,    2.55},
+            {1.3,     0.0,     2.4},
+            {1.3,     -0.728,  2.4},
+            {0.728,   -1.3,    2.4},
+            {0.0,     -1.3,    2.4},
+            {-0.224,  -0.4,    2.55},
+            {-0.4,    -0.224,  2.55},
+            {-0.4,    0.0,     2.55},
+            {-0.728,  -1.3,    2.55},
+            {-1.3,    -0.728,  2.55},
+            // 251
+            {-1.3,    0.0,     2.55},
+            {-0.728,  -1.3,    2.4},
+            {-1.3,    -0.728,  2.4},
+            {-1.3,    0.0,     2.4},
+            {-0.4,    0.224,   2.55},
+            {-0.224,  0.4,     2.55},
+            {0.0,     0.4,     2.55},
+            {-1.3,    0.728,   2.55},
+            {-0.728,  1.3,     2.55},
+            {0.0,     1.3,     2.55},
+            // 261
+            {-1.3,    0.728,   2.4},
+            {-0.728,  1.3,     2.4},
+            {0.0,     1.3,     2.4},
+            {0.224,   0.4,     2.55},
+            {0.4,     0.224,   2.55},
+            {0.728,   1.3,     2.55},
+            {1.3,     0.728,   2.55},
+            {0.728,   1.3,     2.4},
+            {1.3,     0.728,   2.4},
+    };
+    for (int j = 0; j < vertexCount; j++) {
+        vertexList[j].set(teapot_cp_vertices[j][0], teapot_cp_vertices[j][1], teapot_cp_vertices[j][2], 0.0f, 0.0f, 1.0f);
+    }
 }
