@@ -7,11 +7,11 @@
 #include <vector>
 #include "GeometricDefinitions.h"
 #include "glad/glad.h"
-#include "GLErrorCheck.h"
+#include "Helper/GLErrorCheck.h"
 #include "Shader.h"
 
 class Object3D {
-private:
+protected:
     static int factorial(int n);
 
     static float calculateBinomialCoeff(int n, int i);
@@ -19,6 +19,14 @@ private:
     static float calculateBernsteinPolynomial(int n, int i, float u);
 
     Vertex calculateBezierVertices(float u, float v, int index);
+
+    void GenerateBezierVertexList(Vertex *bezierVertexList);
+
+    void GenerateBezierElementArray();
+
+    void SetVertices();
+
+    void SetBezierPatches();
 
 public:
     unsigned int VBO;
@@ -37,10 +45,6 @@ public:
     ~Object3D();
 
     void CreateObject();
-
-    void SetVertices();
-
-    void SetBezierPatches();
 
     void DrawObject(Shader *shader, glm::mat4 *vp);
 };

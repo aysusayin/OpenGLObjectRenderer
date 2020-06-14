@@ -9,7 +9,7 @@ uniform mat4 mvp;
 void main()
 {
 	gl_Position = mvp * vec4(position, 1.0f);
-	ourColor = color;
+	ourColor = (position * color)* 0.5 + 0.5;
 }
 
 #shader fragment

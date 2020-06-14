@@ -3,7 +3,7 @@ project(OpenGLBezier)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(OpenGLBezier main.cpp Shader.h Object3D.cpp Object3D.h GeometricDefinitions.h GLErrorCheck.h GLErrorCheck.cpp)
+add_executable(OpenGLBezier main.cpp Shader.h Object3D.cpp Object3D.h GeometricDefinitions.h Helper/GLErrorCheck.h Helper/GLErrorCheck.cpp)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(glfw3 3.3 REQUIRED)

@@ -11,10 +11,7 @@ Object3D::~Object3D() {
     glDeleteBuffers(1, &EBO);
 }
 
-void Object3D::CreateObject() {
-    SetVertices();
-    SetBezierPatches();
-    Vertex bezierVertexList[RESU * RESV * PATCH_NUM];
+void Object3D::GenerateBezierVertexList(Vertex* bezierVertexList) {
     for (int p = 0; p < bezierSurfaceCount; p++) {
         for (int ru = 0; ru < RESU; ru++) {
             float u = 1.0 * ru / (RESU - 1);
@@ -24,8 +21,9 @@ void Object3D::CreateObject() {
             }
         }
     }
+}
 
-    // Elements
+void Object3D::GenerateBezierElementArray() {
     int n = 0;
     for (int i = 0; i < bezierSurfaceCount; i++) {
         for (int ru = 0; ru < RESU - 1; ru++) {
@@ -48,6 +46,15 @@ void Object3D::CreateObject() {
             }
         }
     }
+}
+
+void Object3D::CreateObject() {
+    SetVertices();
+    SetBezierPatches();
+    Vertex bezierVertexList[RESU * RESV * PATCH_NUM];
+    GenerateBezierVertexList(bezierVertexList);
+    GenerateBezierElementArray();
+
     // Bind the vertex and index buffers
     GLCall(glGenVertexArrays(1, &VAO));
     GLCall(glGenBuffers(1, &VBO));
@@ -67,7 +74,6 @@ void Object3D::CreateObject() {
     GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
     GLCall(glBufferData(GL_ARRAY_BUFFER, PATCH_NUM * RESU * RESV * attributeCount * sizeof(float), vertexData,
                         GL_STATIC_DRAW));
-
 
     // Bind buffer element array.
     GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO));
@@ -91,9 +97,9 @@ void Object3D::CreateObject() {
     delete[] vertexData;
 }
 
-void Object3D::DrawObject(Shader *shader, glm::mat4* vp) {
+void Object3D::DrawObject(Shader *shader, glm::mat4 *vp) {
     GLCall(glBindVertexArray(VAO));
-    glm::mat4 mvp = *vp * modelMatrix ;
+    glm::mat4 mvp = *vp * modelMatrix;
     shader->SetUniformMat4fv("mvp", mvp);
     GLCall(glDrawElements(GL_TRIANGLES, PATCH_NUM * (RESU - 1) * (RESV - 1) * 2 * 3, GL_UNSIGNED_INT,
                           0));
@@ -102,17 +108,17 @@ void Object3D::DrawObject(Shader *shader, glm::mat4* vp) {
 
 Vertex Object3D::calculateBezierVertices(float u, float v, int index) {
     Vertex result;
-    result.set(0,0,0,0,0,0);
+    result.set(0, 0, 0, 1, 1, 0);
     for (int i = 0; i < ORDER + 1; i++) {
         for (int j = 0; j < ORDER + 1; j++) {
             result = result +
-                    (calculateBernsteinPolynomial(ORDER, i, u) * calculateBernsteinPolynomial(ORDER, j, v) *
-                     vertexList[bezierList[index].controlPoints[i][j]]);
+                     (calculateBernsteinPolynomial(ORDER, i, u) * calculateBernsteinPolynomial(ORDER, j, v) *
+                      vertexList[bezierList[index].controlPoints[i][j]]);
         }
     }
-    result.r = 0.99;
-    result.b = 1.0 * index / bezierSurfaceCount;
-    result.g = 1.0 * index / bezierSurfaceCount;
+    result.r = 0.8;
+    result.g = 0.8;
+    result.b = 0.6 * index / bezierSurfaceCount;
     return result;
 }
 
@@ -478,6 +484,7 @@ void Object3D::SetVertices() {
             {1.3,     0.728,   2.4},
     };
     for (int j = 0; j < vertexCount; j++) {
-        vertexList[j].set(teapot_cp_vertices[j][0], teapot_cp_vertices[j][1], teapot_cp_vertices[j][2], 0.0f, 0.0f, 1.0f);
+
+        vertexList[j].set(teapot_cp_vertices[j][0], teapot_cp_vertices[j][1], teapot_cp_vertices[j][2], 1, 0, 0);
     }
 }

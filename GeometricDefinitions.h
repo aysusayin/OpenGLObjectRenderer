@@ -1,7 +1,7 @@
 #pragma once
 #define ORDER 3
-#define RESU 10
-#define RESV 10
+#define RESU 100
+#define RESV 100
 #define PATCH_NUM 28
 
 #include <cmath>
@@ -36,6 +36,9 @@ inline Vertex operator*(float a, const Vertex &v) {
     vertex.x = a * v.x;
     vertex.y = a * v.y;
     vertex.z = a * v.z;
+    vertex.r = v.r;
+    vertex.g = v.g;
+    vertex.b = v.b;
     return vertex;
 }
 
@@ -44,6 +47,9 @@ inline Vertex operator*(const Vertex &v, float a) {
     vertex.x = a * v.x;
     vertex.y = a * v.y;
     vertex.z = a * v.z;
+    vertex.r = v.r;
+    vertex.g = v.g;
+    vertex.b = v.b;
     return vertex;
 }
 
@@ -59,5 +65,5 @@ inline Vertex operator+(const Vertex &v1, const Vertex &v2) {
 }
 
 struct BezierSurface {
-    unsigned int controlPoints[ORDER+1][ORDER+1];
+    unsigned int controlPoints[ORDER + 1][ORDER + 1];
 };

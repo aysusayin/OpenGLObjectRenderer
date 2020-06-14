@@ -11,8 +11,8 @@
 #include <GL/gl.h>
 
 GLFWwindow *window;
-glm::vec3 cameraPos = glm::vec3(0.0f, -8.0, 4.0f);
-glm::vec3 cameraTarget = glm::vec3(0.0f, 4.0f, 0.0f);
+glm::vec3 cameraPos = glm::vec3(-3.0f, -10.0, 8.0f);
+glm::vec3 cameraTarget = glm::vec3(-3.0f, 0.0f, 0.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode) {
@@ -35,9 +35,10 @@ void GLInit(const int width, const int height) {
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
     glfwWindowHint(GLFW_SAMPLES, 4);
 
-    window = glfwCreateWindow(width, height, "Bezier Surfaces", nullptr, nullptr);
+    window = glfwCreateWindow(width, height, "DANCING TEAPOTS: Bezier Surfaces", nullptr, nullptr);
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
+    glfwSwapInterval(2);
 
     // glad: load all OpenGL function pointers
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
@@ -63,7 +64,17 @@ glm::mat4 calculateViewTransform() {
 }
 
 glm::mat4 calculateProjectionTransform(const int width, const int height) {
-    return glm::perspective<float>(glm::radians(45.0f),(float) width / (float) height,0.1f, 10.0f);
+    return glm::perspective<float>(glm::radians(45.0f), (float) width / (float) height, 0.1f, 100.0f);
+}
+
+glm::mat4 calculateAnimationTransform() {
+    // This part is for animation
+    float coeff = std::sin((float)glfwGetTime());
+    //vp = glm::scale(vp, coeff * glm::vec3(1, 1, 1));
+    glm:: mat4 vp = glm::mat4(1);
+    vp = glm::rotate(vp, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+    vp = glm::translate(vp, coeff * glm::vec3(0.0f, 5.0f, 0.0f));
+    return vp;
 }
 
 int main() {
@@ -73,6 +84,8 @@ int main() {
 
     Object3D *utahTeapot = new Object3D();
     listOfObjects.push_back(utahTeapot);
+    Object3D *utahTeapot2 = new Object3D();
+    listOfObjects.push_back(utahTeapot2);
 
     Shader shader("res/Basic.shader");
 
@@ -84,13 +97,15 @@ int main() {
 
         glm::mat4 view = calculateViewTransform();  // Create camera transformation
         glm::mat4 projection = calculateProjectionTransform(screenWidth, screenHeight); // Create projection transformation
-        glm::mat4 vp = projection * view;
+        glm:: mat4 animation = calculateAnimationTransform();
+        glm::mat4 vp =  projection * view * animation;
 
-        for (auto pObj : listOfObjects){
-            pObj->DrawObject(&shader, &vp);
+        for (int i = 0; i < listOfObjects.size(); i++) {
+            if(i==1){
+                vp = glm::translate(vp, glm::vec3(0.0f, -5.0f, 0.0f));
+            }
+            listOfObjects[i]->DrawObject(&shader, &vp);
         }
-
-
         glfwSwapBuffers(window);
     }
     // Clean up
