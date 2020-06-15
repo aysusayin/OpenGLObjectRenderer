@@ -151,7 +151,7 @@ void UtahTeapot::SetElementList() {
 }
 
 void UtahTeapot::SetBezierPatches() {
-    unsigned int teapot_patches[][ORDER + 1][ORDER + 1] = {
+    unsigned int teapotPatches[][ORDER + 1][ORDER + 1] = {
             // rim
             {{1,   2,   3,   4},   {5,   6,   7,   8},   {9,   10,  11,  12},  {13,  14,  15,  16}},
             {{4,   17,  18,  19},  {8,   20,  21,  22},  {12,  23,  24,  25},  {16,  26,  27,  28}},
@@ -187,19 +187,19 @@ void UtahTeapot::SetBezierPatches() {
             {{229, 232, 233, 212}, {257, 264, 265, 234}, {260, 266, 267, 238}, {263, 268, 269, 242}}
             // no bottom!
     };
-    bezierSurfaceCount = sizeof(teapot_patches) / sizeof(teapot_patches[0]);
+    bezierSurfaceCount = sizeof(teapotPatches) / sizeof(teapotPatches[0]);
     bezierSurfacesList.resize(bezierSurfaceCount);
     for (int p = 0; p < bezierSurfaceCount; p++) {
         for (int i = 0; i < ORDER + 1; i++) {
             for (int j = 0; j < ORDER + 1; j++) {
-                bezierSurfacesList[p].controlPoints[i][j] = teapot_patches[p][i][j] - 1;
+                bezierSurfacesList[p].controlPoints[i][j] = teapotPatches[p][i][j] - 1;
             }
         }
     }
 }
 
 void UtahTeapot::SetVertices() {
-    float teapot_cp_vertices[][3] = {
+    float teapotCPVertices[][3] = {
             // 1
             {1.4,     0.0,     2.4},
             {1.4,     -0.784,  2.4},
@@ -497,9 +497,9 @@ void UtahTeapot::SetVertices() {
             {0.728,   1.3,     2.4},
             {1.3,     0.728,   2.4},
     };
-    int size = sizeof(teapot_cp_vertices) / sizeof(teapot_cp_vertices[0]);
-    for (int j = 0; j < size; j++) {
-        allVertexList.emplace_back(teapot_cp_vertices[j][0], teapot_cp_vertices[j][1], teapot_cp_vertices[j][2],
-                                       1, 0, 0);
+    int numPatches = sizeof(teapotCPVertices) / sizeof(teapotCPVertices[0]);
+    for (int j = 0; j < numPatches; j++) {
+        allVertexList.emplace_back(teapotCPVertices[j][0], teapotCPVertices[j][1], teapotCPVertices[j][2],
+                                   1, 0, 0);
     }
 }

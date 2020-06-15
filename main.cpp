@@ -5,10 +5,8 @@
 #include "Shader.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include "Object3D.h"
 #include <vector>
-#include <GL/gl.h>
 
 GLFWwindow *window;
 glm::vec3 cameraPos = glm::vec3(-3.0f, -10.0, 8.0f);
@@ -98,13 +96,13 @@ int main() {
         glm::mat4 view = calculateViewTransform();  // Create camera transformation
         glm::mat4 projection = calculateProjectionTransform(screenWidth, screenHeight); // Create projection transformation
         glm::mat4 animation = calculateAnimationTransform();
-        glm::mat4 transformationMatrix =  projection * view;
+        glm::mat4 transformation = projection * view;
 
         for (int i = 0; i < listOfObjects.size(); i++) {
             if(i==1){
                 animation = glm::translate(animation, glm::vec3(0.0f, -5.0f, 0.0f));
             }
-            listOfObjects[i]->DrawObject(&shader, &transformationMatrix, &animation);
+            listOfObjects[i]->DrawObject(&shader, &transformation, &animation);
         }
         glfwSwapBuffers(window);
     }
