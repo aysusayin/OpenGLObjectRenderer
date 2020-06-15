@@ -1,17 +1,75 @@
 #include "Object3D.h"
 
-Object3D::Object3D() {
-    this->modelMatrix = glm::mat4(1.0f);
-    CreateObject();
-}
-
 Object3D::~Object3D() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
+
+    if (vertexArray != nullptr) {
+        delete[] vertexArray;
+        vertexArray = nullptr;
+    }
+    if (elementArray != nullptr) {
+        delete[] elementArray;
+        elementArray = nullptr;
+    }
 }
 
-void Object3D::GenerateBezierVertexList(Vertex* bezierVertexList) {
+void Object3D::CreateObject() {
+    SetVertexList();
+    SetElementList();
+
+    // Bind the vertex and index buffers
+    GLCall(glGenVertexArrays(1, &VAO));
+    GLCall(glGenBuffers(1, &VBO));
+    GLCall(glGenBuffers(1, &EBO));
+
+    // Bind our Vertex Array Object first, then bind and set our buffers and
+    // pointers.
+    GLCall(glBindVertexArray(VAO));
+
+    // Convert our vertex list into a continuous array, copy the vertices into the
+    // vertex buffer.
+    GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
+    GLCall(glBufferData(GL_ARRAY_BUFFER, vertexCount * Vertex::attributeCount * sizeof(GLfloat), vertexArray,
+                        GL_STATIC_DRAW));
+
+    // Bind buffer element array.
+    GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO));
+    GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, elementCount * 3 * sizeof(GLuint), elementArray, GL_STATIC_DRAW));
+
+    // Position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, Vertex::attributeCount * sizeof(GLfloat), (GLvoid *) 0);
+    glEnableVertexAttribArray(0);
+
+    // Color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, Vertex::attributeCount * sizeof(GLfloat),
+                          (GLvoid *) (3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // Unbind VAO
+    glBindVertexArray(0);
+}
+
+void Object3D::DrawObject(Shader *shader, glm::mat4 *transformationMatrix, glm::mat4 *animationMatrix) {
+    GLCall(glBindVertexArray(VAO));
+    glm::mat4 mvp = *transformationMatrix * modelMatrix;
+    if(animationMatrix != nullptr)
+        mvp = mvp * *animationMatrix;
+    shader->SetUniformMat4fv("mvp", mvp);
+    GLCall(glDrawElements(GL_TRIANGLES, elementCount * 3, GL_UNSIGNED_INT, 0));
+    GLCall(glBindVertexArray(0));
+}
+
+UtahTeapot::UtahTeapot(glm::mat4 modelMatrix) {
+    this->modelMatrix = modelMatrix;
+    SetVertices();
+    SetBezierPatches();
+    CreateObject();
+}
+
+void UtahTeapot::GenerateBezierVertexList(Vertex *bezierVertexList) {
     for (int p = 0; p < bezierSurfaceCount; p++) {
         for (int ru = 0; ru < RESU; ru++) {
             float u = 1.0 * ru / (RESU - 1);
@@ -23,97 +81,39 @@ void Object3D::GenerateBezierVertexList(Vertex* bezierVertexList) {
     }
 }
 
-void Object3D::GenerateBezierElementArray() {
+void UtahTeapot::GenerateBezierElementArray() {
     int n = 0;
     for (int i = 0; i < bezierSurfaceCount; i++) {
         for (int ru = 0; ru < RESU - 1; ru++) {
             for (int rv = 0; rv < RESV - 1; rv++) {
                 // 1 square ABCD = 2 triangles ABC + CDA
                 // ABC
-                bezierElementArray[n] = i * RESU * RESV + ru * RESV + rv;
+                elementArray[n] = i * RESU * RESV + ru * RESV + rv;
                 n++;
-                bezierElementArray[n] = i * RESU * RESV + ru * RESV + (rv + 1);
+                elementArray[n] = i * RESU * RESV + ru * RESV + (rv + 1);
                 n++;
-                bezierElementArray[n] = i * RESU * RESV + (ru + 1) * RESV + (rv + 1);
+                elementArray[n] = i * RESU * RESV + (ru + 1) * RESV + (rv + 1);
                 n++;
                 // CDA
-                bezierElementArray[n] = i * RESU * RESV + (ru + 1) * RESV + (rv + 1);
+                elementArray[n] = i * RESU * RESV + (ru + 1) * RESV + (rv + 1);
                 n++;
-                bezierElementArray[n] = i * RESU * RESV + (ru + 1) * RESV + rv;
+                elementArray[n] = i * RESU * RESV + (ru + 1) * RESV + rv;
                 n++;
-                bezierElementArray[n] = i * RESU * RESV + ru * RESV + rv;
+                elementArray[n] = i * RESU * RESV + ru * RESV + rv;
                 n++;
             }
         }
     }
 }
 
-void Object3D::CreateObject() {
-    SetVertices();
-    SetBezierPatches();
-    Vertex bezierVertexList[RESU * RESV * PATCH_NUM];
-    GenerateBezierVertexList(bezierVertexList);
-    GenerateBezierElementArray();
-
-    // Bind the vertex and index buffers
-    GLCall(glGenVertexArrays(1, &VAO));
-    GLCall(glGenBuffers(1, &VBO));
-    GLCall(glGenBuffers(1, &EBO));
-
-    // Bind our Vertex Array Object first, then bind and set our buffers and
-    // pointers.
-    GLCall(glBindVertexArray(VAO));
-
-    int attributeCount = sizeof(Vertex) / sizeof(float); // x y z r g b = 6
-
-    // Convert our vertex list into a continuous array, copy the vertices into the
-    // vertex buffer.
-    float *vertexData = new float[PATCH_NUM * RESU * RESV * attributeCount];
-    for (int i = 0; i < PATCH_NUM * RESU * RESV; i++)
-        bezierVertexList[i].getAsArray(&vertexData[i * attributeCount]);
-    GLCall(glBindBuffer(GL_ARRAY_BUFFER, VBO));
-    GLCall(glBufferData(GL_ARRAY_BUFFER, PATCH_NUM * RESU * RESV * attributeCount * sizeof(float), vertexData,
-                        GL_STATIC_DRAW));
-
-    // Bind buffer element array.
-    GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO));
-    GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, PATCH_NUM * (RESU - 1) * (RESV - 1) * 2 * 3 * sizeof(unsigned int),
-                        bezierElementArray,
-                        GL_STATIC_DRAW));
-
-    // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
-                          attributeCount * sizeof(GLfloat), (GLvoid *) 0);
-    glEnableVertexAttribArray(0);
-    // Color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
-                          attributeCount * sizeof(GLfloat),
-                          (GLvoid *) (3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    // Unbind VAO
-    glBindVertexArray(0);
-    // Delete temporary buffers
-    delete[] vertexData;
-}
-
-void Object3D::DrawObject(Shader *shader, glm::mat4 *vp) {
-    GLCall(glBindVertexArray(VAO));
-    glm::mat4 mvp = *vp * modelMatrix;
-    shader->SetUniformMat4fv("mvp", mvp);
-    GLCall(glDrawElements(GL_TRIANGLES, PATCH_NUM * (RESU - 1) * (RESV - 1) * 2 * 3, GL_UNSIGNED_INT,
-                          0));
-    GLCall(glBindVertexArray(0));
-}
-
-Vertex Object3D::calculateBezierVertices(float u, float v, int index) {
+Vertex UtahTeapot::calculateBezierVertices(float u, float v, int index) {
     Vertex result;
     result.set(0, 0, 0, 1, 1, 0);
     for (int i = 0; i < ORDER + 1; i++) {
         for (int j = 0; j < ORDER + 1; j++) {
             result = result +
                      (calculateBernsteinPolynomial(ORDER, i, u) * calculateBernsteinPolynomial(ORDER, j, v) *
-                      vertexList[bezierList[index].controlPoints[i][j]]);
+                      allVertexList[bezierSurfacesList[index].controlPoints[i][j]]);
         }
     }
     result.r = 0.8;
@@ -122,21 +122,38 @@ Vertex Object3D::calculateBezierVertices(float u, float v, int index) {
     return result;
 }
 
-int Object3D::factorial(int n) {
+int UtahTeapot::factorial(int n) {
     return (n == 1 || n == 0) ? 1 : factorial(n - 1) * n;
 }
 
-float Object3D::calculateBinomialCoeff(int n, int i) {
+float UtahTeapot::calculateBinomialCoeff(int n, int i) {
     return factorial(n) * 1.0f / (factorial(i) * factorial(n - i));
 }
 
-float Object3D::calculateBernsteinPolynomial(int n, int i, float u) {
+float UtahTeapot::calculateBernsteinPolynomial(int n, int i, float u) {
     return calculateBinomialCoeff(n, i) * (float) pow(u, i) * (float) pow(1 - u, n - i);
 }
 
-void Object3D::SetBezierPatches() {
+void UtahTeapot::SetVertexList() {
+    Vertex *bezierVertexList = (Vertex *) malloc(RESU * RESV * bezierSurfaceCount * sizeof(Vertex));
+    GenerateBezierVertexList(bezierVertexList);
+
+    vertexCount = bezierSurfaceCount * RESU * RESV;
+    vertexArray = (float *) malloc(vertexCount * Vertex::attributeCount * sizeof(float));
+
+    for (int i = 0; i < bezierSurfaceCount * RESU * RESV; i++)
+        bezierVertexList[i].getAsArray(&vertexArray[i * Vertex::attributeCount]);
+}
+
+void UtahTeapot::SetElementList() {
+    elementCount = bezierSurfaceCount * (RESU - 1) * (RESV - 1) * 2; // 2 because a patch is 2 triangles
+    elementArray = (unsigned int *) malloc(3 * elementCount * sizeof(unsigned int)); // each triangle has 3 vertices
+    GenerateBezierElementArray();
+}
+
+void UtahTeapot::SetBezierPatches() {
     bezierSurfaceCount = PATCH_NUM;
-    bezierList.resize(bezierSurfaceCount);
+    bezierSurfacesList.resize(bezierSurfaceCount);
     unsigned int teapot_patches[][ORDER + 1][ORDER + 1] = {
             // rim
             {{1,   2,   3,   4},   {5,   6,   7,   8},   {9,   10,  11,  12},  {13,  14,  15,  16}},
@@ -176,15 +193,15 @@ void Object3D::SetBezierPatches() {
     for (int p = 0; p < bezierSurfaceCount; p++) {
         for (int i = 0; i < ORDER + 1; i++) {
             for (int j = 0; j < ORDER + 1; j++) {
-                bezierList[p].controlPoints[i][j] = teapot_patches[p][i][j] - 1;
+                bezierSurfacesList[p].controlPoints[i][j] = teapot_patches[p][i][j] - 1;
             }
         }
     }
 }
 
-void Object3D::SetVertices() {
-    vertexCount = 269;
-    vertexList.resize(vertexCount);
+void UtahTeapot::SetVertices() {
+    int vertexCount = 269;
+    allVertexList.resize(vertexCount);
     float teapot_cp_vertices[][3] = {
             // 1
             {1.4,     0.0,     2.4},
@@ -484,7 +501,7 @@ void Object3D::SetVertices() {
             {1.3,     0.728,   2.4},
     };
     for (int j = 0; j < vertexCount; j++) {
-
-        vertexList[j].set(teapot_cp_vertices[j][0], teapot_cp_vertices[j][1], teapot_cp_vertices[j][2], 1, 0, 0);
+        allVertexList[j].set(teapot_cp_vertices[j][0], teapot_cp_vertices[j][1], teapot_cp_vertices[j][2],
+                             1, 0, 0);
     }
 }

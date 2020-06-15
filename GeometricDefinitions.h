@@ -7,6 +7,7 @@
 #include <cmath>
 
 struct Vertex {
+    static const int attributeCount = 6;
     float x, y, z;  /* the usual 3-space position of a vertex */
     float r, g, b;  // Color
 
