@@ -1,12 +1,13 @@
 #pragma once
+
 #define ORDER 3
 #define RESU 100
 #define RESV 100
-#define PATCH_NUM 28
 
 #include <cmath>
 
 struct Vertex {
+    static const int attributeCount = 6;
     float x, y, z;  /* the usual 3-space position of a vertex */
     float r, g, b;  // Color
 
@@ -20,7 +21,16 @@ struct Vertex {
         attributeArray[5] = b;
     }
 
-    void set(float v_x, float v_y, float v_z, float v_r, float v_g, float v_b) {
+    Vertex(){
+        x = 0;
+        y = 0;
+        z = 0;
+        r = 0;
+        g = 0;
+        b = 0;
+    };
+
+    Vertex(float v_x, float v_y, float v_z, float v_r, float v_g, float v_b) {
         x = v_x;
         y = v_y;
         z = v_z;

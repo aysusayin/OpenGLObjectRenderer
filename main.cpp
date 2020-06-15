@@ -82,9 +82,9 @@ int main() {
     GLInit(screenWidth, screenHeight);
     std::vector<Object3D *> listOfObjects;
 
-    Object3D *utahTeapot = new Object3D();
+    Object3D *utahTeapot = new UtahTeapot();
     listOfObjects.push_back(utahTeapot);
-    Object3D *utahTeapot2 = new Object3D();
+    Object3D *utahTeapot2 = new UtahTeapot();
     listOfObjects.push_back(utahTeapot2);
 
     Shader shader("res/Basic.shader");
@@ -97,14 +97,14 @@ int main() {
 
         glm::mat4 view = calculateViewTransform();  // Create camera transformation
         glm::mat4 projection = calculateProjectionTransform(screenWidth, screenHeight); // Create projection transformation
-        glm:: mat4 animation = calculateAnimationTransform();
-        glm::mat4 vp =  projection * view * animation;
+        glm::mat4 animation = calculateAnimationTransform();
+        glm::mat4 transformationMatrix =  projection * view;
 
         for (int i = 0; i < listOfObjects.size(); i++) {
             if(i==1){
-                vp = glm::translate(vp, glm::vec3(0.0f, -5.0f, 0.0f));
+                animation = glm::translate(animation, glm::vec3(0.0f, -5.0f, 0.0f));
             }
-            listOfObjects[i]->DrawObject(&shader, &vp);
+            listOfObjects[i]->DrawObject(&shader, &transformationMatrix, &animation);
         }
         glfwSwapBuffers(window);
     }

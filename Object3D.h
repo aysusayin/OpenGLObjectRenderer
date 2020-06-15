@@ -12,6 +12,30 @@
 
 class Object3D {
 protected:
+    unsigned int VBO;
+    unsigned int EBO;
+    unsigned int VAO;
+    glm::mat4 modelMatrix;
+    int vertexCount;
+    int elementCount;
+    unsigned int *elementArray;
+    float *vertexArray;
+
+    void CreateObject();
+
+    virtual void SetVertexList() = 0;
+
+    virtual void SetElementList() = 0;
+
+public:
+    void DrawObject(Shader *shader, glm::mat4 *transformationMatrix, glm::mat4 *animationMatrix = nullptr);
+
+    ~Object3D();
+
+};
+
+class UtahTeapot : public Object3D {
+protected:
     static int factorial(int n);
 
     static float calculateBinomialCoeff(int n, int i);
@@ -28,23 +52,14 @@ protected:
 
     void SetBezierPatches();
 
+    void SetVertexList() override;
+
+    void SetElementList() override;
+
 public:
-    unsigned int VBO;
-    unsigned int EBO;
-    unsigned int VAO;
-    int vertexCount;
     int bezierSurfaceCount;
-    glm::mat4 modelMatrix;
-    std::vector<Vertex> vertexList;
-    std::vector<BezierSurface> bezierList;
-    // 2 because a patch is 2 triangles and each has 3 vertices
-    unsigned int bezierElementArray[PATCH_NUM * (RESU - 1) * (RESV - 1) * 2 * 3];
+    std::vector<Vertex> allVertexList;
+    std::vector<BezierSurface> bezierSurfacesList;
 
-    Object3D();
-
-    ~Object3D();
-
-    void CreateObject();
-
-    void DrawObject(Shader *shader, glm::mat4 *vp);
+    UtahTeapot(glm::mat4 modelMatrix = glm::mat4(1));
 };
