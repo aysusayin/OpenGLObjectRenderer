@@ -16,6 +16,15 @@ glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
+    else if (key == GLFW_KEY_O && action == GLFW_PRESS) // Zoom Out
+        cameraPos += glm::vec3(0.0f, -1.0, 0.0f);
+    else if (key == GLFW_KEY_I && action == GLFW_PRESS) // Zoom In
+        cameraPos += glm::vec3(0.0f, 1.0, 0.0f);
+    else if (key == GLFW_KEY_UP && action == GLFW_PRESS) // View From Up
+        cameraTarget += glm::vec3(0.0f, 1.0, 0.0f);
+    else if (key == GLFW_KEY_DOWN && action == GLFW_PRESS) // View From Down
+        cameraTarget += glm::vec3(0.0f, -1.0, 0.0f);
+
 }
 
 void GLClear() {
@@ -101,13 +110,11 @@ int main() {
 
         for (int i = 0; i < listOfObjects.size(); i++) {
             if (i == 1) {
-                animation = glm::translate(animation, glm::vec3(0.0f, -5.0f, 0.0f));
-
+                animation = glm::translate(animation, glm::vec3(0.0f, 5.0f, 0.0f));
             }
             listOfObjects[i]->DrawObject(&shader, &transformation, &animation);
-
-
         }
+
         glfwSwapBuffers(window);
     }
     // Clean up
