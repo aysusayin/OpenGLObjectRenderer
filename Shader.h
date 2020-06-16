@@ -126,6 +126,12 @@ public:
         auto loc = glGetUniformLocation(this->Program, name);
         GLCall(glUniform3f(loc, 1, GL_FALSE, matrix[0]));
     }
+
+    void SetUniform1i(const char *name, int value) {
+        // Get the matrix locations in the shaders and pass the view and projection matrices to the shaders
+        auto loc = glGetUniformLocation(this->Program, name);
+        GLCall(glUniform1i(loc,value));
+    }
 };
 
 #endif

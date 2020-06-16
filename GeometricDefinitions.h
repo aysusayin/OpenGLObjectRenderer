@@ -1,15 +1,15 @@
 #pragma once
 
 #define ORDER 3
-#define RESU 100
-#define RESV 100
-
+#define RESU 10
+#define RESV 10
 #include <cmath>
 
 struct Vertex {
-    static const int attributeCount = 6;
+    static const int attributeCount = 8;
     float x, y, z;  /* the usual 3-space position of a vertex */
     float r, g, b;  // Color
+    float texX{0.5}, texY{0.5};
 
     void getAsArray(float *attributeArray) {
         // Keep the declaration order
@@ -19,6 +19,8 @@ struct Vertex {
         attributeArray[3] = r;
         attributeArray[4] = g;
         attributeArray[5] = b;
+        attributeArray[6] = texX;
+        attributeArray[7] = texY;
     }
 
     Vertex(){
@@ -37,6 +39,8 @@ struct Vertex {
         r = v_r;
         g = v_g;
         b = v_b;
+        texX = x;
+        texY = y;
     }
 
 };

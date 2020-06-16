@@ -1,9 +1,14 @@
 #include "Object3D.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+
+#include "Helper/stb.h"
+
 Object3D::~Object3D() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
+    glDeleteTextures(1, &texture);
 
     if (vertexArray != nullptr) {
         delete[] vertexArray;
@@ -46,6 +51,12 @@ void Object3D::CreateObject() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, Vertex::attributeCount * sizeof(GLfloat),
                           (GLvoid *) (3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
+
+    // Texture Position Attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, Vertex::attributeCount * sizeof(GLfloat),
+                          (GLvoid *) (6 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // Unbind VAO
@@ -54,18 +65,55 @@ void Object3D::CreateObject() {
 
 void Object3D::DrawObject(Shader *shader, glm::mat4 *transformationMatrix, glm::mat4 *animationMatrix) {
     GLCall(glBindVertexArray(VAO));
+    glActiveTexture(GL_TEXTURE0);
+    GLCall(glBindTexture(GL_TEXTURE_2D, texture));
+    shader->SetUniform1i("u_texture", 0);
     glm::mat4 mvp = *transformationMatrix * modelMatrix;
-    if(animationMatrix != nullptr)
+    if (animationMatrix != nullptr)
         mvp = mvp * *animationMatrix;
     shader->SetUniformMat4fv("mvp", mvp);
     GLCall(glDrawElements(GL_TRIANGLES, elementCount * 3, GL_UNSIGNED_INT, 0));
     GLCall(glBindVertexArray(0));
+    GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+
 }
 
-UtahTeapot::UtahTeapot(glm::mat4 modelMatrix) {
+void Object3D::SetTexture(std::string filePath) {
+    texturePath = filePath;
+    SetTexture();
+}
+
+void Object3D::SetTexture() {
+    int w, h, BPP;
+    unsigned char *textureBuffer;
+
+    stbi_set_flip_vertically_on_load(1);
+    textureBuffer = stbi_load(texturePath.c_str(), &w, &h, &BPP, 4);
+
+    GLCall(glGenTextures(1, &texture));
+    GLCall(glBindTexture(GL_TEXTURE_2D, texture));
+
+    GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+    GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+    GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+
+    GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureBuffer));
+    GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+
+    if (textureBuffer) {
+        stbi_image_free(textureBuffer);
+    }
+}
+
+UtahTeapot::UtahTeapot(std::string texturePath, glm::mat4 modelMatrix) {
     this->modelMatrix = modelMatrix;
+    this->texturePath = texturePath;
+    this->isTextureSet = !texturePath.compare("res/textures/default.png") == 0;
+
     SetVertices();
     SetBezierPatches();
+    SetTexture(this->texturePath);
     CreateObject();
 }
 
@@ -111,13 +159,18 @@ Vertex UtahTeapot::calculateBezierVertices(float u, float v, int index) {
     for (int i = 0; i < ORDER + 1; i++) {
         for (int j = 0; j < ORDER + 1; j++) {
             *result = *result +
-                     (calculateBernsteinPolynomial(ORDER, i, u) * calculateBernsteinPolynomial(ORDER, j, v) *
-                      allVertexList[bezierSurfacesList[index].controlPoints[i][j]]);
+                      (calculateBernsteinPolynomial(ORDER, i, u) * calculateBernsteinPolynomial(ORDER, j, v) *
+                       allVertexList[bezierSurfacesList[index].controlPoints[i][j]]);
         }
     }
-    result->r = 0.8f;
-    result->g = 0.8f;
-    result->b = 0.6f * index / bezierSurfaceCount;
+    if (isTextureSet) {
+        result->r = 1.0f;
+        result->g = 1.0f;
+        result->b = 1.0f;
+    }
+
+    result->texX = (atan2(result->z, result->x)) + M_PI;
+    result->texY = (result->y);
     return *result;
 }
 
@@ -497,9 +550,9 @@ void UtahTeapot::SetVertices() {
             {0.728,   1.3,     2.4},
             {1.3,     0.728,   2.4},
     };
-    int numPatches = sizeof(teapotCPVertices) / sizeof(teapotCPVertices[0]);
-    for (int j = 0; j < numPatches; j++) {
+    int numVertices = sizeof(teapotCPVertices) / sizeof(teapotCPVertices[0]);
+    for (int j = 0; j < numVertices; j++) {
         allVertexList.emplace_back(teapotCPVertices[j][0], teapotCPVertices[j][1], teapotCPVertices[j][2],
-                                   1, 0, 0);
+                                   0.8f,  0.8f, 0.0f);
     }
 }
