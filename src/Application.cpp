@@ -1,5 +1,3 @@
-// OpenGLProject.cpp : Defines the entry point for the console application.
-//
 #include "../include/glad/glad.h"
 #include <GLFW/glfw3.h>
 #include "Shader.h"
@@ -7,13 +5,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "Object3D.h"
 #include <vector>
-
 GLFWwindow *window;
-glm::vec3 cameraPos = glm::vec3(-3.0f, -10.0, 8.0f);
+glm::vec3 cameraPos = glm::vec3(-3.0f, -25.0, 8.0f);
 glm::vec3 cameraTarget = glm::vec3(-3.0f, 0.0f, 0.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode) {
+void key_callback(GLFWwindow *window, int key, int scanCode, int action, int mode) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
     else if (key == GLFW_KEY_O && action == GLFW_PRESS) // Zoom Out
@@ -24,11 +21,10 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         cameraTarget += glm::vec3(0.0f, 1.0, 0.0f);
     else if (key == GLFW_KEY_DOWN && action == GLFW_PRESS) // View From Down
         cameraTarget += glm::vec3(0.0f, -1.0, 0.0f);
-
 }
 
 void GLClear() {
-    // Clear the colorbuffer
+    // Clear the color buffer
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
@@ -92,8 +88,26 @@ int main() {
 
     Object3D *utahTeapot = new UtahTeapot("res/textures/porcelain.png");
     listOfObjects.push_back(utahTeapot);
+
     Object3D *utahTeapot2 = new UtahTeapot("res/textures/check.png");
     listOfObjects.push_back(utahTeapot2);
+
+    glm::mat4 chairModelMatrix = glm::mat4(1);
+    chairModelMatrix = glm::rotate(chairModelMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    chairModelMatrix = glm::rotate(chairModelMatrix, glm::radians(135.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    chairModelMatrix = glm::translate(chairModelMatrix, glm::vec3(5.0f, 0.0f, 5.0f));
+    Object3D *chair = new Object3D(chairModelMatrix);
+    chair->CreateFromPlyFile("/home/aysu/CLionProjects/OpenGLBezier/input/chair.ply");
+    listOfObjects.push_back(chair);
+
+
+    chairModelMatrix = glm::mat4(1);
+    chairModelMatrix = glm::rotate(chairModelMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    chairModelMatrix = glm::rotate(chairModelMatrix, glm::radians(-135.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    chairModelMatrix = glm::translate(chairModelMatrix, glm::vec3(5.0f, 0.0f, 10.0f));
+    Object3D *chair2 = new Object3D(chairModelMatrix);
+    chair2->CreateFromPlyFile("/home/aysu/CLionProjects/OpenGLBezier/input/chair.ply");
+    listOfObjects.push_back(chair2);
 
     Shader shader("res/shaders/Basic.shader");
 
@@ -103,16 +117,16 @@ int main() {
         shader.Use(); // Use shader
 
         glm::mat4 view = calculateViewTransform();  // Create camera transformation
-        glm::mat4 projection = calculateProjectionTransform(screenWidth,
-                                                            screenHeight); // Create projection transformation
+        glm::mat4 projection = calculateProjectionTransform(screenWidth, screenHeight); // Create projection transformation
         glm::mat4 animation = calculateAnimationTransform();
         glm::mat4 transformation = projection * view;
 
         for (int i = 0; i < listOfObjects.size(); i++) {
-            if (i == 1) {
+            if (i == 1)
                 animation = glm::translate(animation, glm::vec3(0.0f, 5.0f, 0.0f));
-            }
-            listOfObjects[i]->DrawObject(&shader, &transformation, &animation);
+            else if (i > 1)
+                animation = glm::mat4(1);
+            listOfObjects[i]->DrawObject(&shader, &projection, &view, &animation);
         }
 
         glfwSwapBuffers(window);

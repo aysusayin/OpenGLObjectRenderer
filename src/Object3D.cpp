@@ -4,6 +4,13 @@
 
 #include "vendor/stb.h"
 
+Object3D::Object3D(glm::mat4 modelMatrix) {
+    this->modelMatrix = modelMatrix;
+    this->texturePath = "res/textures/default.png";
+    this->isTextureSet = true;
+    SetTexture(this->texturePath);
+}
+
 Object3D::~Object3D() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
@@ -20,10 +27,7 @@ Object3D::~Object3D() {
     }
 }
 
-void Object3D::CreateObject() {
-    SetVertexList();
-    SetElementList();
-
+void Object3D::BindBuffers() {
     // Bind the vertex and index buffers
     GLCall(glGenVertexArrays(1, &VAO));
     GLCall(glGenBuffers(1, &VBO));
@@ -63,15 +67,30 @@ void Object3D::CreateObject() {
     glBindVertexArray(0);
 }
 
-void Object3D::DrawObject(Shader *shader, glm::mat4 *transformationMatrix, glm::mat4 *animationMatrix) {
+void Object3D::CreateFromPlyFile(std::string filePath) {
+    PlyFileParser parser(filePath);
+    vertexCount = parser.getVertexNum();
+    elementCount = parser.getTriangleNum();
+    vertexList.resize(vertexCount);
+    triangleList.resize(elementCount);
+    parser.ParseFile(&vertexList, &triangleList);
+    SetElementArray();
+    SetVertexArray();
+    BindBuffers();
+}
+
+void
+Object3D::DrawObject(Shader *shader, glm::mat4 *projectionMatrix, glm::mat4 *viewMatrix, glm::mat4 *animationMatrix) {
     GLCall(glBindVertexArray(VAO));
     glActiveTexture(GL_TEXTURE0);
     GLCall(glBindTexture(GL_TEXTURE_2D, texture));
+
     shader->SetUniform1i("u_texture", 0);
-    glm::mat4 mvp = *transformationMatrix * modelMatrix;
-    if (animationMatrix != nullptr)
-        mvp = mvp * *animationMatrix;
-    shader->SetUniformMat4fv("mvp", mvp);
+    shader->SetUniformMat4fv("projection", *projectionMatrix);
+    shader->SetUniformMat4fv("view", *viewMatrix);
+    shader->SetUniformMat4fv("model", modelMatrix);
+    shader->SetUniformMat4fv("animation", *animationMatrix);
+
     GLCall(glDrawElements(GL_TRIANGLES, elementCount * 3, GL_UNSIGNED_INT, 0));
     GLCall(glBindVertexArray(0));
     GLCall(glBindTexture(GL_TEXTURE_2D, 0));
@@ -106,6 +125,18 @@ void Object3D::SetTexture() {
     }
 }
 
+void Object3D::SetElementArray() {
+    elementArray = (unsigned int *) malloc(3 * elementCount * sizeof(unsigned int));
+    for (int i = 0; i < elementCount; i++)
+        memcpy(&elementArray[i * 3], triangleList[i].vertexIndexList, sizeof(int) * 3);
+};
+
+void Object3D::SetVertexArray() {
+    vertexArray = (float *) malloc(vertexCount * Vertex::attributeCount * sizeof(float));
+    for (int i = 0; i < vertexCount; i++)
+        vertexList[i].getAsArray(&vertexArray[i * Vertex::attributeCount]);
+};
+
 UtahTeapot::UtahTeapot(std::string texturePath, glm::mat4 modelMatrix) {
     this->modelMatrix = modelMatrix;
     this->texturePath = texturePath;
@@ -114,7 +145,9 @@ UtahTeapot::UtahTeapot(std::string texturePath, glm::mat4 modelMatrix) {
     SetVertices();
     SetBezierPatches();
     SetTexture(this->texturePath);
-    CreateObject();
+    SetVertexArray();
+    SetElementArray();
+    BindBuffers();
 }
 
 void UtahTeapot::GenerateBezierVertexList(Vertex *bezierVertexList) {
@@ -186,18 +219,18 @@ float UtahTeapot::CalculateBernsteinPolynomial(int n, int i, float u) {
     return CalculateBinomialCoeff(n, i) * (float) pow(u, i) * (float) pow(1 - u, n - i);
 }
 
-void UtahTeapot::SetVertexList() {
+void UtahTeapot::SetVertexArray() {
     Vertex *bezierVertexList = (Vertex *) malloc(RESU * RESV * bezierSurfaceCount * sizeof(Vertex));
     GenerateBezierVertexList(bezierVertexList);
 
     vertexCount = bezierSurfaceCount * RESU * RESV;
     vertexArray = (float *) malloc(vertexCount * Vertex::attributeCount * sizeof(float));
 
-    for (int i = 0; i < bezierSurfaceCount * RESU * RESV; i++)
+    for (int i = 0; i < vertexCount; i++)
         bezierVertexList[i].getAsArray(&vertexArray[i * Vertex::attributeCount]);
 }
 
-void UtahTeapot::SetElementList() {
+void UtahTeapot::SetElementArray() {
     elementCount = bezierSurfaceCount * (RESU - 1) * (RESV - 1) * 2; // 2 because a patch is 2 triangles
     elementArray = (unsigned int *) malloc(3 * elementCount * sizeof(unsigned int)); // each triangle has 3 vertices
     GenerateBezierElementArray();
@@ -553,6 +586,7 @@ void UtahTeapot::SetVertices() {
     int numVertices = sizeof(teapotCPVertices) / sizeof(teapotCPVertices[0]);
     for (int j = 0; j < numVertices; j++) {
         allVertexList.emplace_back(teapotCPVertices[j][0], teapotCPVertices[j][1], teapotCPVertices[j][2],
-                                   0.8f,  0.8f, 0.0f);
+                                   0.8f, 0.8f, 0.0f);
     }
 }
+

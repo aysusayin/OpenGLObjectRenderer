@@ -6,11 +6,14 @@ layout(location = 2) in vec2 texCoords;
 
 out vec3 ourColor;
 out vec2 ourTexCoords;
-uniform mat4 mvp;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+uniform mat4 animation;
 
 void main()
 {
-	gl_Position = mvp * vec4(position, 1.0f);
+	gl_Position = projection * view * model * animation * vec4(position, 1.0f);
 	ourColor = color + position[0]*vec3(0.2f,0.2f,0.2f);
 	ourTexCoords = texCoords;
 }

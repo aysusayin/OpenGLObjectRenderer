@@ -30,6 +30,8 @@ struct Vertex {
         r = 0;
         g = 0;
         b = 0;
+        texX = 0.5;
+        texY = 0.5;
     };
 
     Vertex(float v_x, float v_y, float v_z, float v_r, float v_g, float v_b) {
@@ -39,10 +41,15 @@ struct Vertex {
         r = v_r;
         g = v_g;
         b = v_b;
-        texX = x;
-        texY = y;
+        texX = 0.5;
+        texY = 0.5;
     }
 
+};
+
+struct Triangle {
+    int numberOfVertices; /* number of vertex indices in list */
+    int* vertexIndexList; /* vertex index list */
 };
 
 inline Vertex operator*(float a, const Vertex &v) {

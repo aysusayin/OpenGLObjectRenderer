@@ -10,7 +10,8 @@
 #include "GLErrorCheck.h"
 #include "Shader.h"
 #include <GLFW/glfw3.h>
-
+#include <../include/rply/rply.h>
+#include "PlyFileParser.h"
 
 class Object3D {
 protected:
@@ -22,25 +23,30 @@ protected:
     glm::mat4 modelMatrix;
     int vertexCount;
     int elementCount;
+    std::vector<Vertex> vertexList;
+    std::vector<Triangle> triangleList;
     unsigned int *elementArray;
     float *vertexArray;
 
     std::string texturePath;
 
-    void CreateObject();
-
     void SetTexture();
 
-    virtual void SetVertexList() = 0;
+    virtual void SetVertexArray();
 
-    virtual void SetElementList() = 0;
+    virtual void SetElementArray();
 
 
 public:
+    void BindBuffers();
 
-    void DrawObject(Shader *shader, glm::mat4 *transformationMatrix, glm::mat4 *animationMatrix = nullptr);
+    void CreateFromPlyFile(std::string filePath);
+
+    void DrawObject(Shader *shader, glm::mat4 *projectionMatrix,glm::mat4 *viewMatrix, glm::mat4 *animationMatrix);
 
     void SetTexture(std::string filePath);
+
+    explicit Object3D(glm::mat4 modelMatrix = glm::mat4(1));
 
     ~Object3D();
 
@@ -64,14 +70,14 @@ protected:
 
     void SetBezierPatches();
 
-    void SetVertexList() override;
+    void SetVertexArray() override;
 
-    void SetElementList() override;
+    void SetElementArray() override;
 
 public:
     int bezierSurfaceCount;
     std::vector<Vertex> allVertexList;
     std::vector<BezierSurface> bezierSurfacesList;
 
-    UtahTeapot(std::string texturePath = "res/textures/default.png", glm::mat4 modelMatrix = glm::mat4(1));
+    explicit UtahTeapot(std::string texturePath = "res/textures/default.png", glm::mat4 modelMatrix = glm::mat4(1));
 };
