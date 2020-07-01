@@ -2,7 +2,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 
-#include "Helper/stb.h"
+#include "vendor/stb.h"
 
 Object3D::~Object3D() {
     glDeleteVertexArrays(1, &VAO);
@@ -123,7 +123,7 @@ void UtahTeapot::GenerateBezierVertexList(Vertex *bezierVertexList) {
             float u = 1.0 * ru / (RESU - 1);
             for (int rv = 0; rv < RESV; rv++) {
                 float v = 1.0 * rv / (RESV - 1);
-                bezierVertexList[p * RESU * RESV + ru * RESV + rv] = calculateBezierVertices(u, v, p);
+                bezierVertexList[p * RESU * RESV + ru * RESV + rv] = CalculateBezierVertices(u, v, p);
             }
         }
     }
@@ -154,12 +154,12 @@ void UtahTeapot::GenerateBezierElementArray() {
     }
 }
 
-Vertex UtahTeapot::calculateBezierVertices(float u, float v, int index) {
+Vertex UtahTeapot::CalculateBezierVertices(float u, float v, int index) {
     Vertex *result = new Vertex();
     for (int i = 0; i < ORDER + 1; i++) {
         for (int j = 0; j < ORDER + 1; j++) {
             *result = *result +
-                      (calculateBernsteinPolynomial(ORDER, i, u) * calculateBernsteinPolynomial(ORDER, j, v) *
+                      (CalculateBernsteinPolynomial(ORDER, i, u) * CalculateBernsteinPolynomial(ORDER, j, v) *
                        allVertexList[bezierSurfacesList[index].controlPoints[i][j]]);
         }
     }
@@ -178,12 +178,12 @@ int UtahTeapot::factorial(int n) {
     return (n == 1 || n == 0) ? 1 : factorial(n - 1) * n;
 }
 
-float UtahTeapot::calculateBinomialCoeff(int n, int i) {
+float UtahTeapot::CalculateBinomialCoeff(int n, int i) {
     return factorial(n) * 1.0f / (factorial(i) * factorial(n - i));
 }
 
-float UtahTeapot::calculateBernsteinPolynomial(int n, int i, float u) {
-    return calculateBinomialCoeff(n, i) * (float) pow(u, i) * (float) pow(1 - u, n - i);
+float UtahTeapot::CalculateBernsteinPolynomial(int n, int i, float u) {
+    return CalculateBinomialCoeff(n, i) * (float) pow(u, i) * (float) pow(1 - u, n - i);
 }
 
 void UtahTeapot::SetVertexList() {

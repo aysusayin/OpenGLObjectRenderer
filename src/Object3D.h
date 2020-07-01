@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 #include "GeometricDefinitions.h"
-#include "glad/glad.h"
-#include "Helper/GLErrorCheck.h"
+#include "../include/glad/glad.h"
+#include "GLErrorCheck.h"
 #include "Shader.h"
 #include <GLFW/glfw3.h>
 
@@ -50,11 +50,11 @@ class UtahTeapot : public Object3D {
 protected:
     static int factorial(int n);
 
-    static float calculateBinomialCoeff(int n, int i);
+    static float CalculateBinomialCoeff(int n, int i);
 
-    static float calculateBernsteinPolynomial(int n, int i, float u);
+    static float CalculateBernsteinPolynomial(int n, int i, float u);
 
-    Vertex calculateBezierVertices(float u, float v, int index);
+    Vertex CalculateBezierVertices(float u, float v, int index);
 
     void GenerateBezierVertexList(Vertex *bezierVertexList);
 
@@ -72,7 +72,6 @@ public:
     int bezierSurfaceCount;
     std::vector<Vertex> allVertexList;
     std::vector<BezierSurface> bezierSurfacesList;
-
 
     UtahTeapot(std::string texturePath = "res/textures/default.png", glm::mat4 modelMatrix = glm::mat4(1));
 };

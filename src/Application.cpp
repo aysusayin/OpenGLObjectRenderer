@@ -1,6 +1,6 @@
 // OpenGLProject.cpp : Defines the entry point for the console application.
 //
-#include "glad/glad.h"
+#include "../include/glad/glad.h"
 #include <GLFW/glfw3.h>
 #include "Shader.h"
 #include <glm/glm.hpp>
@@ -95,7 +95,7 @@ int main() {
     Object3D *utahTeapot2 = new UtahTeapot("res/textures/check.png");
     listOfObjects.push_back(utahTeapot2);
 
-    Shader shader("res/Basic.shader");
+    Shader shader("res/shaders/Basic.shader");
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();

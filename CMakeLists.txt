@@ -3,7 +3,7 @@ project(OpenGLBezier)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(OpenGLBezier main.cpp Object3D.cpp Helper/GLErrorCheck.cpp glad/glad.c Helper/stb.h)
+add_executable(OpenGLBezier src/Application.cpp src/Object3D.cpp src/GLErrorCheck.cpp include/glad/glad.c include/vendor/stb.h)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
